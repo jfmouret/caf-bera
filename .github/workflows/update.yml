@@ -25,6 +25,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NIVOSE_ONLY: ${{ (github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[nivose]')) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,7 +36,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - name: Vérifier la présence de la clé
-        if: github.event_name != 'schedule' || github.event.schedule != '15 */2 * * *'
+        if: env.NIVOSE_ONLY != 'true'
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: |
@@ -43,12 +45,12 @@ jobs:
             exit 1
           fi
       - name: Générer les données actuelles
-        if: github.event_name != 'schedule' || github.event.schedule != '15 */2 * * *'
+        if: env.NIVOSE_ONLY != 'true'
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
       - name: Trouver la dernière publication à conserver
-        if: github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *'
+        if: env.NIVOSE_ONLY == 'true'
         id: previous
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,7 +59,7 @@ jobs:
           test "$run_id" != null
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
       - name: Reprendre les fichiers BERA et l'historique publiés
-        if: github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *'
+        if: env.NIVOSE_ONLY == 'true'
         uses: actions/download-artifact@v4
         with:
           name: bera-fichiers

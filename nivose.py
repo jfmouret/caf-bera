@@ -236,7 +236,7 @@ def build(stations, now, out):
     for s in stations:
         online = dict(s)
         if s.get('chart_local'):
-            online['chart_local'] = '../'+s['chart_local']
+            online['chart_local'] = '../'+s['chart_local']+'?v='+urllib.parse.quote(now.isoformat())
         body=description(online,now).replace('width="320"','width="800"').replace('max-width:320px','max-width:850px').replace('Courbes enregistrées hors ligne','Courbes actualisées').replace('Ce KMZ est un instantané : réimporter pour actualiser.','Cette page donne accès aux dernières courbes publiées.')
         js='<script>const built='+json.dumps(now.isoformat())+';async function refresh(){try{const r=await fetch("../nivose.json",{cache:"no-store"});if(!r.ok)return;const d=await r.json();if(d.generated_at!==built){const u=new URL(location.href);if(u.searchParams.get("v")!==d.generated_at){u.searchParams.set("v",d.generated_at);location.replace(u.href);}}}catch(e){}}refresh();setInterval(refresh,300000);</script>'
         (live_dir/(s['id']+'.html')).write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(s['name'])+'</title>'+style+'<body><p><a href="../nivose.html">Toutes les stations</a> · Actualisation de la page toutes les 5 minutes</p>'+body+js+'</body></html>')
