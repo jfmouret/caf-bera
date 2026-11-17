@@ -53,9 +53,9 @@ class NivoseTests(unittest.TestCase):
         self.assertTrue(any(s['id']=='38005402' and s['altitude']==2240 for s in rows))
         self.assertEqual({s['region'] for s in rows},{'Alpes du Nord','Alpes du Sud'})
 
-    def test_history_merge_deduplicates_utc_and_keeps_seven_days(self):
+    def test_history_merge_deduplicates_utc_and_keeps_three_days(self):
         old=[dict(measured_at='2026-11-17T20:00:00+01:00',snow_cm=2),
-             dict(measured_at='2026-11-09T19:00:00Z',snow_cm=99),
+             dict(measured_at='2026-11-13T19:00:00Z',snow_cm=99),
              dict(measured_at='2026-11-18T19:00:00Z',snow_cm=99)]
         new=[dict(measured_at='2026-11-17T19:00:00Z',snow_cm=3)]
         h=nivose.merge_history(old,new,self.now)
@@ -88,3 +88,16 @@ class NivoseTests(unittest.TestCase):
                 self.assertIn('https://example.org/nivose/38005402.html',desc)
                 self.assertIn('src="nivose-media/38005402.png"',desc)
             self.assertIn('cache:"no-store"',(out/'nivose/38005402.html').read_text())
+
+    def test_online_reperes_do_not_embed_offline_charts(self):
+        b=nivose.parse_observation(self.payload(),'38005402',self.now)
+        s=dict(self.station,observation=b,history=[b],live_url='https://example.org/nivose/38005402.html')
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d);nivose.build([s],self.now,out,offline=False)
+            with zipfile.ZipFile(out/'nivose-alpes.kmz') as z:
+                self.assertFalse(any(n.startswith('nivose-media/') for n in z.namelist()))
+                root=ET.fromstring(z.read('doc.kml'))
+                desc=root.findtext('.//{'+nivose.K+'}Placemark/{'+nivose.K+'}description')
+                self.assertIn(s['live_url'],desc)
+                self.assertNotIn('Mesure du ',desc)
+            self.assertTrue((out/'nivose-media/38005402.png').exists())

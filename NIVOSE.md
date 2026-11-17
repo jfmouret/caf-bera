@@ -1,46 +1,41 @@
-# Stations Nivôse des Alpes
+# CAF BERA — accès en ligne et paquet hors ligne
 
-`nivose.py` ajoute deux instantanés de repères cliquables à la publication existante :
+Les six passages quotidiens sont programmés à 06 h 30, 10 h 30, 14 h 30, 16 h 30, 18 h 30 et 20 h 30 Europe/Paris. GitHub peut retarder le démarrage. Les BERA sont interrogés aux trois horaires du soir ; les trois autres passages reprennent la dernière publication BERA et renouvellent les Nivôse. Les générations manuelles renouvellent les deux.
 
-- `nivose-belledonne.kmz` : AIGLETON-NIVOSE, station 38005402, altitude officielle 2240 m.
-- `nivose-alpes.kmz` : stations portant NIVOSE dans le catalogue officiel, départements 04, 05, 06, 38, 73 et 74.
-- `nivose.html` : fiches et téléchargements en ligne.
-- `nivose.json` : mesures normalisées, heures, provenance et erreurs.
+## En ligne
 
-Le catalogue officiel enregistré le 17/11/2026 contient 20 stations dans ce périmètre. La liste est renouvelée depuis l'API lorsque l'accès est autorisé. Ce périmètre correspond aux stations disponibles dans le catalogue, sans inventer une station par massif. Le réseau nivo-météorologique des observateurs partenaires est un autre réseau.
+Le site publie les tuiles AQX BERA, les bulletins et PDF officiels accessibles, les graphiques Nivôse et des KMZ légers contenant les positions et liens permanents. Les textes, couleurs et dates BERA continuent de provenir des bulletins officiels. La dernière valeur de danger reste affichée jusqu'au remplacement, avec les dates réelles.
 
-## Accès et production
+Les historiques Nivôse sont conservés trois jours. Les observations sont récupérées au pas horaire depuis l'API Observation autorisée (clé MF_OBS_API_KEY, repli MF_API_KEY), qui ne conserve que 24 heures. Les heures manquantes des dernières 24 heures sont redemandées ; aucun jour antérieur indisponible n'est reconstitué. Les heures réelles validity_time sont utilisées, dédupliquées, et les valeurs nulles restent indisponibles. Les courbes sont coupées aux lacunes. Température K vers °C, neige m vers cm, vent m/s vers km/h, selon la documentation officielle DPObs.
 
-API : `https://public-api.meteofrance.fr/public/DPObs/v2/`
+Le catalogue officiel contient 20 Nivôse dans les départements 04, 05, 06, 38, 73 et 74, dont AIGLETON-NIVOSE 38005402 à 2240 m. Il est renouvelé depuis l'API si elle est accessible. Les dernières mesures déjà publiées sont conservées en cas d'échec avec leur date et une mention de repli. Une impossibilité de récupérer la copie précédente interrompt la publication pour préserver l'historique.
 
-Routes documentées : `liste-stations`, puis `station/horaire?id_station=38005402&format=geojson`.
+Les repères légers s'importent une fois dans AlpineQuest. Toucher une station puis son lien ouvre les courbes actualisées ; les repères importés ne se renouvellent pas automatiquement. Les pages de stations vérifient la génération à l'ouverture puis toutes les cinq minutes ; les URL des images sont versionnées. Aucun NetworkLink AlpineQuest non vérifié n'est utilisé.
 
-Le workflow utilise `MF_OBS_API_KEY` si ce secret existe ; sinon il essaie `MF_API_KEY`. La clé doit autoriser l'API **Données d'observation**. La clé reste côté GitHub et n'est pas écrite dans les fichiers publiés. Une erreur 401/403 suspend les requêtes suivantes, signale l'accès refusé et laisse les repères disponibles avec la mention « Mesures indisponibles ». Une dernière mesure déjà publiée est conservée avec sa date et une mention de repli.
+## Hors ligne, uniquement sur demande
 
-Les collectes Nivôse ont lieu toutes les deux heures à H+15 aux heures paires, Europe/Paris (00:15, 02:15…22:15), ainsi qu'aux passages BERA de 16 h 30, 18 h 30 et 20 h 30, aux exécutions manuelles et aux changements de code. Les tâches de deux heures reprennent l'artefact de la dernière publication réussie pour préserver les BERA sans les interroger de nouveau. Un échec de reprise bloque la publication et préserve le site précédent. GitHub peut retarder les exécutions. L'heure de la mesure et celle de la copie sont distinctes ; une mesure de plus de trois heures est signalée comme ancienne.
+Dans GitHub : Actions → BERA quotidien → Run workflow → branche main → cocher « Générer et publier le paquet hors ligne » → Run workflow.
 
-Les unités suivent le descriptif officiel DPObs mis à jour le 30/06/2026 : `t` en K converti en °C, `sss` en m converti en cm, `ff` et `raf` en m/s convertis en km/h, `dd` en degrés de provenance, `u` en %. `raf` est la rafale maximale sur l'heure. Les valeurs nulles restent indisponibles, jamais transformées en zéro. L'identifiant de station et l'horodatage sont contrôlés ; les mesures futures sont écartées.
+La génération produit un seul caf-bera-hors-ligne.zip, partagé comme asset d'une release publique fixe hors-ligne. La dernière version de cet asset est remplacée à chaque demande ; elle n'est pas dupliquée dans les archives des générations en ligne. Les personnes qui téléchargent cet asset n'ont pas besoin de compte GitHub. La page hors-ligne.html affiche le lien et la date obtenus de l'API GitHub ; tant qu'aucun paquet manuel n'a été généré, elle le signale.
 
-## Dans AlpineQuest
+Le ZIP contient :
+- bera-contours.kmz : massifs cliquables, BERA, illustrations officielles et PDF sous forme d'images locales ;
+- nivose-alpes.kmz : stations, courbes et dernières mesures enregistrées ;
+- bera.mbtile : couche raster BERA transparente, à superposer au fond IGN personnel ;
+- LIRE-MOI.txt : date de génération et installation.
 
-Télécharger le KMZ Alpes et l'ouvrir/importer comme repères. Afficher avec IGN, BERA V4 et les contours BERA existants. Le KMZ Belledonne est une alternative pour tester uniquement Aigleton ; importer les deux crée un doublon pour cette station. Toucher un repère pour lire les mesures. Texte et icône sont intégrés au KMZ, sans besoin de réseau pour lire l'instantané enregistré. Le lien vers la fiche officielle de station nécessite du réseau. Pour renouveler les données, remplacer l'ancien import par le KMZ actualisé. L'affichage exact des fiches reste à tester sur l'appareil Android.
+Les Nivôse hors ligne gardent trois jours maximum, un point (le dernier disponible) par tranche UTC de quatre heures. Les dates sont affichées en heure de Paris. Les courbes relient ces points espacés de quatre heures et interrompent les lacunes plus longues ; aucun point manquant n'est inventé. Une variation de hauteur totale de neige n'est pas un cumul de neige fraîche. Les textes et graphiques hors ligne sont figés à la date du paquet ; remplacer les imports pour les renouveler. L'affichage des images intégrées reste à tester dans AlpineQuest Android.
 
-Les observations sont ponctuelles au site de la station. Une variation de hauteur totale du manteau neigeux n'est pas une mesure de neige fraîche. Aucun niveau de danger d'avalanche n'est déduit de ces mesures.
+## Stockage et trafic
 
-## Sources officielles
+Les copies techniques en ligne portent le nom bera-en-ligne : deux dernières copies au maximum après nettoyage, expiration à un jour. Avant le nouveau transfert, après validation des données, une seule ancienne copie en ligne et la dernière archive Pages sont conservées. La dernière archive legacy bera-fichiers est conservée pendant la migration jusqu'au premier déploiement léger réussi ; les anciennes copies lourdes de ce nom sont alors supprimées. Après publication, le nettoyage exige la présence des nouvelles archives bera-en-ligne et github-pages avant toute suppression. Les autres noms d'artefacts ne sont pas touchés. Le jeton temporaire du workflow a actions: write pour ce nettoyage et contents: write pour publier le paquet hors ligne demandé.
 
-- Documentation : https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/
-- Catalogue CSV : https://www.data.gouv.fr/api/1/datasets/r/4250e317-1176-425d-880c-ebe9205efc89
-- Paramètres et unités : https://www.data.gouv.fr/api/1/datasets/r/aaae09a4-4d5e-4191-a774-0a74d5214322
-- Portail de souscription : https://portail-api.meteofrance.fr/web/fr/api/DonneesPubliquesObservation
-- Source Météo-France — Licence Ouverte 2.0.
+L'historique Nivôse de trois jours est contenu dans ces petites copies en ligne ; il est indépendant de la durée de rétention des archives complètes. Le paquet hors ligne n'est produit que si la case de génération manuelle est cochée. Il reste téléchargeable en release jusqu'à son remplacement.
 
-Validation : tests de conversion d'unités, nulls, identifiant, date future, catalogue et KMZ autonome. Les tests utilisent des valeurs artificielles pour les conversions ; elles ne sont jamais publiées comme observations réelles.
+Un objectif de 1,5 Go/jour correspond à environ 45 Go sur 30 jours. Le trafic des visiteurs est indépendant du nombre de générations ; Pages ne fournit ici ni compteur quotidien ni coupure automatique à 1,5 Go. La limite souple documentée de Pages est 100 Go/mois, et la taille maximale du site publié 1 Go. Les quotas de stockage d'artefacts sont distincts du trafic et partagés au niveau du compte. Aucun budget ou moyen de paiement du compte n'est modifié par ce projet.
 
-## Courbes et actualisation
+Source : Météo-France — Licence Ouverte 2.0.
 
-Chaque station dispose d'une page permanente `nivose/ID.html` : le lien « Courbes actualisées en ligne » dans le repère l'ouvre sans nouvelle importation du KMZ. La page vérifie la génération à l'ouverture et toutes les cinq minutes. L'actualisation automatique des repères importés / NetworkLink n'est pas garantie par la documentation AlpineQuest et n'est pas utilisée.
-
-Les graphiques PNG représentent vent moyen et rafale maximale horaire, température (rouge au-dessus de zéro, bleu en dessous), et hauteur totale de neige en cm. Les images sont intégrées au KMZ pour consultation hors connexion. La copie locale ne s'actualise qu'après réimportation. L'affichage des images dans la fiche doit être testé sur Android ; le lien vers la page permet aussi leur consultation en grand.
-
-L'API Observation conserve 24 heures : la première collecte redemande les mesures des 23 heures précédentes et la mesure courante ; les collectes suivantes complètent les heures manquantes. Les heures réelles `validity_time` sont dédupliquées et conservées pendant sept jours dans `nivose.json`, publié et sauvegardé avec l'artefact GitHub. Les journées antérieures non récupérables ne sont pas reconstituées. Si la copie précédente ne peut être récupérée (hors premier démarrage HTTP 404), la publication est interrompue pour éviter d'effacer l'historique. Les courbes sont interrompues pour les lacunes de plus de 90 minutes et pour les valeurs nulles ; aucune interpolation de ces lacunes. Les requêtes sont espacées de 0,7 seconde, sous la limite de 100/min avec ce client séquentiel. Les variations de hauteur totale ne sont pas renommées chutes de neige, car tassement, fonte et transport par le vent influencent la mesure.
+Documentation API : https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/
+Catalogue stations : https://www.data.gouv.fr/api/1/datasets/r/4250e317-1176-425d-880c-ebe9205efc89
+Unités : https://www.data.gouv.fr/api/1/datasets/r/aaae09a4-4d5e-4191-a774-0a74d5214322

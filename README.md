@@ -1,87 +1,49 @@
-# Cache AQX V4
+# CAF — BERA et Nivôse dans AlpineQuest
 
-La source BERA V4 utilise un identifiant et des URL distincts pour écarter les anciennes tuiles mises en cache. Masquer toutes les anciennes couches BERA et afficher uniquement V4, avec le fond IGN. Les contours KMZ peuvent rester affichés.
+Site : https://jfmouret.github.io/caf-bera/
 
-# Correction AQX V3
+Source : Météo-France — Licence Ouverte 2.0. Transformation indépendante pour les formations CAF. Aucun fond IGN n'est redistribué. Les couleurs BERA représentent le maximum du massif, pas le risque local d'une pente.
 
-Réimporter `bera.aqx` et afficher uniquement la couche **BERA V4** en masquant les anciennes couches BERA V1/V2. Le cache et les URL de tuiles V3 sont distincts. Les KMZ avec textes et illustrations hors ligne sont conservés.
+## Usage courant en ligne
 
-Les libellés sont désormais ancrés sur le centre géographique officiel de chaque massif, puis découpés sur la grille de tuiles. Ils ne sont plus répétés aux bords des tuiles. Les niveaux de vue générale 6–8 affichent les polygones sans bandeaux de texte pour éviter leur agrandissement depuis des tuiles de secours. Les limites de tuiles disponibles sont indiquées dans l'AQX à chaque niveau de zoom.
+- Importer `bera.aqx` : afficher uniquement **BERA V4** au-dessus de son fond IGN.
+- Importer `bera-contours.kmz` : limites cliquables avec liens permanents vers les informations BERA actualisées.
+- Importer `nivose-alpes.kmz` : 20 stations cliquables avec liens permanents vers les courbes en ligne. `nivose-belledonne.kmz` est une alternative limitée à l'Aigleton, déjà inclus dans le fichier Alpes.
+- Les repères sont désormais légers : ils ouvrent les données en ligne. Les anciens imports hors ligne déjà enregistrés sur le téléphone restent des instantanés datés.
 
-Le dernier BERA reçu conserve sa couleur jusqu'à son remplacement, même après son échéance initiale. La publication et l'échéance d'origine sont affichées, sans modification des dates ni du niveau officiel. Un bulletin daté à venir ou l'absence de bulletin exploitable reste gris.
+Les Nivôse gardent trois jours de mesures horaires. Les courbes sont actualisées en ligne aux six passages de 06 h 30, 10 h 30, 14 h 30, 16 h 30, 18 h 30 et 20 h 30, heure de Paris, avec gestion été/hiver. Les BERA sont interrogés aux trois passages du soir ; les autres passages préservent la dernière publication BERA. GitHub peut retarder une tâche.
 
-# CAF — BERA dynamique dans AlpineQuest
+Le dernier BERA reçu conserve sa couleur jusqu'au remplacement, même après son échéance initiale, avec dates réelles inchangées et dépassement signalé. Une mesure Nivôse est ponctuelle au site de la station. La hauteur totale du manteau n'est pas un cumul de neige fraîche.
 
-Publication : https://jfmouret.github.io/caf-bera/
+Si d'anciens libellés BERA restent déplacés dans AlpineQuest, masquer les anciennes couches et relancer l'application : les tuiles V4 ont des URL et un cache distincts. Le KMZ Belledonne initial a été validé par l'utilisateur sur Android ; les images intégrées aux nouvelles fiches hors ligne restent à tester sur cet appareil.
 
-Source : **Météo-France**, Licence Ouverte 2.0 et conditions de l'API jointes dans `data/licence-donnees.md`. Transformation indépendante destinée aux formations neige et avalanches. Aucun fond IGN n'est redistribué.
+## Paquet hors ligne sur demande
 
-## Fichiers pour Android
+Ouvrir **Actions → BERA quotidien → Run workflow**, choisir `main`, cocher **Générer et publier le paquet hors ligne**, puis lancer.
 
-| Fichier publié | Fonction |
-|---|---|
-| `bera.aqx` | Tuiles transparentes BERA au-dessus du fond IGN ; actualisation en ligne |
-| `bera-contours.kmz` | Contours neutres des 23 massifs, texte agrandi et illustrations hors ligne, avec un lien PDF en ligne |
-| `bera-belledonne.kmz` | Instantané détaillé Belledonne |
-| `bera-alpes.kmz` | Instantané détaillé des 23 massifs |
-| `bera.mbtile`, `bera.mbtiles` | Instantané raster facultatif pour le hors ligne |
+La page `hors-ligne.html` donne le lien vers le dernier ZIP publié en release GitHub publique. Le téléchargement n'exige aucun compte GitHub. Avant la première génération manuelle, la page indique qu'aucun paquet n'est disponible.
 
-Importer l'AQX dans AlpineQuest et afficher cette couche au-dessus du fond IGN. Importer les contours depuis Repères → Explorer les repères, puis Afficher. Les KMZ détaillés sont facultatifs et nécessitent une nouvelle importation pour renouveler les informations enregistrées.
+Le ZIP contient `bera-contours.kmz` (bulletins et illustrations officielles hors ligne), `nivose-alpes.kmz` (graphiques hors ligne), `bera.mbtile` (couche raster BERA transparente) et un mode d'emploi. Les Nivôse du paquet sont limitées à trois jours et un point par tranche de quatre heures. Décompresser, importer les deux KMZ comme repères et ouvrir le MBTile comme carte/couche au-dessus d'IGN. Pour renouveler la copie hors ligne, télécharger un nouveau paquet et remplacer les anciens imports.
 
-Après une modification du KMZ, masquer/supprimer l'ancien import puis importer la nouvelle version : AlpineQuest ne met pas automatiquement à jour les repères déjà importés.
+Le paquet est produit uniquement lorsque la case est cochée, puis conservé comme un seul asset de release remplacé à la prochaine demande. Il n'est pas dupliqué dans chaque archive de génération en ligne.
 
-## Lisibilité et accès au PDF
+## Exploitation et stockage
 
-Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La date de publication et l'échéance initiale restent visibles. La version de cache AQX est `CAFBERA2026V4` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
+Les secrets GitHub `MF_API_KEY` (BERA) et `MF_OBS_API_KEY` (Observation) restent dans GitHub Actions, jamais dans les fichiers publiés. La souscription Observation v2 est nécessaire pour les Nivôse.
 
-Les fiches des contours contiennent le texte agrandi, les dates et les illustrations du bulletin enregistrées dans le KMZ. Le cartouche danger/altitude/orientations et les pictogrammes de situations avalancheuses sont repris du PDF officiel, sans redessin ni correspondance de code supposée. Les pages complètes du PDF sont aussi conservées comme images locales. Le nom du massif et la date de rédaction du PDF doivent correspondre au XML ; sinon les illustrations sont écartées et signalées comme indisponibles.
+Les deux dernières archives techniques légères `bera-en-ligne` et la dernière archive Pages sont conservées après publication. Les anciennes archives complètes `bera-fichiers` sont supprimées après la première publication légère réussie. Les autres noms d'artefacts ne sont pas touchés. L'historique de trois jours est contenu dans les copies légères. Le nettoyage est testé et conserve une sauvegarde avant le transfert, puis exige les nouvelles archives après publication. Aucun budget de facturation du compte n'est modifié.
 
-Le lien « PDF officiel — connexion requise » est distinct du contenu hors ligne. Il ouvre `bulletins/ID.html`, puis la copie PDF disponible en ligne. La copie KMZ ne s'actualise pas : retélécharger et réimporter avant une sortie et contrôler la date. La couche AQX continue de se charger en ligne selon sa configuration.
+Le trafic des visiteurs est indépendant du nombre de générations. Un objectif de 1,5 Go/jour correspond à environ 45 Go sur 30 jours ; ce projet ne peut pas imposer ce plafond quotidien sur GitHub Pages. Le stockage des artefacts est un quota distinct, partagé par le compte.
 
-Les images sont des références relatives `media/ID/...` présentes dans le ZIP du KMZ : elles ne dépendent d'aucun téléchargement au moment de la lecture. Leur affichage effectif après import dans AlpineQuest reste à confirmer en mode avion sur Android. Le texte reste disponible si le lecteur ne restitue pas les images.
-Le premier toucher sur une zone reste géré par AlpineQuest : l'ouverture automatique du PDF depuis ce seul toucher n'est pas garantie par KML. Il faut activer le lien dans la fiche/menu de la zone. La taille du panneau natif AlpineQuest reste gérée par l'application ; les styles HTML proposés restent à vérifier sur Android.
+Voir `NIVOSE.md` pour les détails, `data/licence-donnees.md` pour les sources et `RECETTE-ANDROID.md` pour les essais sur appareil.
 
-Le KMZ Belledonne a été validé par l'utilisateur sur Android : zone sélectionnable, texte consultable et ouverture du PDF officiel. Les nouveaux bandeaux et nouvelles fiches avec images locales doivent être retestés sur cet appareil, notamment en mode avion.
-
-## Production automatique
-
-Le workflow `.github/workflows/update.yml` est installé sur `main`. Il se déclenche sur les changements de code, manuellement, et à **16 h 30, 18 h 30 et 20 h 30, heure de Paris**, tous les jours. Le fuseau `Europe/Paris` gère automatiquement les changements d'heure. GitHub peut retarder le démarrage d'une exécution.
-
-Il utilise le secret de dépôt `MF_API_KEY`, teste le parseur, télécharge XML et PDF via l'API officielle, crée les KML/KMZ, PNG RGBA, AQX et MBTiles, conserve une archive d'exécution pendant 7 jours et publie via GitHub Pages. Le secret ne doit jamais être placé dans le code, un AQX, un fichier public ou une discussion.
-
-- Exécutions : https://github.com/jfmouret/caf-bera/actions
-- Configuration : Settings → Pages → Source → GitHub Actions
-- API : `https://public-api.meteofrance.fr/public/DPBRA/v1/massif/BRA?id-massif=8&format=xml` (`format=pdf` pour le PDF).
-
-## Installation locale
-
-Python 3.10+ et fuseau IANA Europe/Paris.
+## Validation locale
 
 ```bash
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
-python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
-python serve.py --directory dist
+python bera.py --all-alps --online-only --base-url https://jfmouret.github.io/caf-bera
+python nivose.py --online-only --output dist --base-url https://jfmouret.github.io/caf-bera
 ```
 
-Sans clé, le script utilise les archives publiques du jour et des deux jours précédents. La dernière copie publiée est aussi recherchée pour conserver le bulletin en cas d'échec de téléchargement ou de réponse plus ancienne. Les dates des XML déterminent l'état ; un dépassement de l'échéance initiale est explicitement signalé, et le dernier niveau officiel reste affiché jusqu'au remplacement. Les erreurs HTTP, le contrôle du massif et les dates sont consignés dans `bulletins.json`. Les codes et textes d'origine sont conservés. `--demo` produit séparément un exercice historique Belledonne, à ne jamais utiliser comme bulletin actuel.
-
-## Interprétation et limites
-
-La couleur correspond au **maximum du massif**, pas au risque local d'une pente. Les niveaux séparés par altitude ou localisation figurent dans les descriptions et le PDF. Aucun découpage des pentes par altitude n'est inventé. Taillefer n'est pas un massif indépendant dans le GeoJSON officiel joint.
-
-1 vert faible, 2 jaune limité, 3 orange marqué, 4 rouge fort, 5 rouge hachuré noir dans les tuiles ; gris : aucun bulletin exploitable ou bulletin daté à venir. Ces couleurs représentent le dernier bulletin reçu ; consulter sa date de publication. Les hachures ne sont pas reproduites dans les polygones KML. Les tuiles sont produites aux niveaux XYZ 6–12 et les MBTiles sont indexés en TMS avec alpha PNG.
-
-Un cache, un KMZ ou un MBTiles peut conserver un ancien bulletin : **contrôler les dates avant utilisation**, notamment hors connexion. Une panne d'exécution peut laisser l'ancienne publication en ligne. `0D` demande l'actualisation à l'affichage, sans garantir un changement instantané sur une vue immobile. GitHub peut retarder une tâche planifiée.
-
-Les dates XML sans fuseau sont interprétées en heure civile française ; les valeurs originales sont conservées. Les libellés SAT 2 et 6 ont été rapprochés des PDF officiels ; les autres restent bruts plutôt qu'être devinés. Les orientations de la rose ne sont pas attribuées arbitrairement à chaque problème.
-
-## Références
-
-- https://www.data.gouv.fr/dataservices/api-bulletin-avalanche
-- https://www.data.gouv.fr/datasets/archive-des-bulletins-avalanches
-- https://www.alpinequest.net/en/help/v2/maps/on-demand-create
-- https://www.alpinequest.net/en/help/v2/placemarks
-- https://www.alpinequest.net/en/help/v2/maps/file-based-select
-
-`VALIDATION.md` décrit les vérifications initiales et `RECETTE-ANDROID.md` propose les essais sur appareil. Les fichiers actuels et leur provenance sont accessibles sur la publication.
+Les données de test artificielles et archives historiques de test ne sont jamais publiées comme observations actuelles. Taillefer n'est pas un massif BERA indépendant dans le GeoJSON officiel utilisé.

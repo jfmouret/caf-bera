@@ -83,7 +83,7 @@ def merge_history(old, incoming, now):
     for row in old + incoming:
         try:
             measured = stamp(row['measured_at']).astimezone(dt.timezone.utc)
-            if now - dt.timedelta(days=7) <= measured <= now:
+            if now - dt.timedelta(days=3) <= measured <= now:
                 merged[measured] = dict(row, measured_at=measured.isoformat())
         except (KeyError, ValueError, TypeError):
             continue
@@ -96,12 +96,12 @@ def missing_hours(history, now):
     return [end-dt.timedelta(hours=i) for i in range(1,24) if end-dt.timedelta(hours=i) not in known]
 
 
-def graph_series(history, field):
+def graph_series(history, field, max_gap_hours=1.5):
     times, values = [], []
     previous = None
     for b in history:
         t = stamp(b['measured_at']).astimezone(PARIS)
-        if previous and t.astimezone(dt.timezone.utc)-previous.astimezone(dt.timezone.utc) > dt.timedelta(minutes=90):
+        if previous and t.astimezone(dt.timezone.utc)-previous.astimezone(dt.timezone.utc) > dt.timedelta(hours=max_gap_hours):
             times.append(previous+dt.timedelta(minutes=30)); values.append(float('nan'))
         times.append(t)
         values.append(b.get(field) if b.get(field) is not None else float('nan'))
@@ -121,7 +121,7 @@ def chart(s, now, out):
     fig, axes = plt.subplots(3, 1, figsize=(8,9), sharex=True, layout='constrained')
     fig.suptitle(s['name'].replace('-NIVOSE','')+' · '+str(s['altitude'])+' m',fontsize=19,weight='bold')
     def line(ax, key, color, label):
-        x,y = graph_series(history,key)
+        x,y = graph_series(history,key,s.get('sampling_hours',1)+.5)
         ax.plot(x,y,color=color,label=label,linewidth=1.8,marker='.',markersize=3)
         return x,np.array(y,dtype=float)
     line(axes[0],'wind_kmh','#e69100','Vent moyen')
@@ -142,7 +142,7 @@ def chart(s, now, out):
         keys = ('wind_kmh','gust_kmh') if field=='wind_kmh' else (field,)
         if not any(b.get(k) is not None for b in history for k in keys):
             ax.text(.5,.5,'Mesures indisponibles',transform=ax.transAxes,ha='center',fontsize=14)
-    start = max(now-dt.timedelta(days=7),min(stamp(b['measured_at']) for b in history))
+    start = max(now-dt.timedelta(days=3),min(stamp(b['measured_at']) for b in history))
     if now-start < dt.timedelta(hours=24):
         start = now-dt.timedelta(hours=24)
     axes[2].set_xlim(start,now)
@@ -163,11 +163,13 @@ def description(s, now):
              f'<p>{esc(s["region"])} · {s["altitude"]} m<br/>Station Météo-France {s["id"]}</p>']
     if s.get('live_url'):
         parts.append('<p><a href="'+esc(s['live_url'],quote=True)+'"><b>Courbes actualisées en ligne — connexion requise</b></a></p>')
+    if s.get('sampling_hours') == 4:
+        parts.append('<p>Courbes hors ligne : un point par tranche de quatre heures ; trois jours maximum.</p>')
     if s.get('chart_local'):
         parts.append('<p><b>Courbes enregistrées hors ligne</b></p><img src="'+esc(s['chart_local'],quote=True)+'" width="320" alt="Vent, température et hauteur totale de neige"/>')
         history = s.get('history',[])
         if history:
-            parts.append('<p>Historique disponible depuis le '+esc(date_label(history[0]['measured_at']))+'. Conservation : 7 jours.</p>')
+            parts.append('<p>Historique disponible depuis le '+esc(date_label(history[0]['measured_at']))+'. Conservation : 3 jours.</p>')
     if b:
         parts.append('<p><b>Mesure du ' + esc(date_label(b['measured_at'])) + '</b></p>')
         if now - stamp(b['measured_at']) > dt.timedelta(hours=3):
@@ -195,7 +197,7 @@ def description(s, now):
     return ''.join(parts)
 
 
-def make_kml(stations, now):
+def make_kml(stations, now, online_only=False):
     def sub(parent, tag, text=None, **attrs):
         child = ET.SubElement(parent, '{'+K+'}'+tag, attrs)
         if text is not None:
@@ -213,13 +215,14 @@ def make_kml(stations, now):
         pm = sub(doc, 'Placemark')
         sub(pm, 'name', s['name'].replace('-NIVOSE','')+' · '+str(s['altitude'])+' m')
         sub(pm, 'styleUrl', '#observed' if s.get('observation') else '#missing')
-        sub(pm, 'description', description(s, now))
+        info = ('<div style="font-size:18px;max-width:320px"><h2>'+html.escape(s['name'])+'</h2><p>'+str(s['altitude'])+' m</p><p><a href="'+html.escape(s.get('live_url',''),quote=True)+'"><b>Ouvrir les courbes actualisées — connexion requise</b></a></p><p>Ce repère est un lien permanent ; les mesures se consultent en ligne.</p></div>') if online_only else description(s, now)
+        sub(pm, 'description', info)
         pt = sub(pm, 'Point'); sub(pt,'altitudeMode','clampToGround')
         sub(pt, 'coordinates', f'{s["longitude"]},{s["latitude"]},0')
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
 
 
-def build(stations, now, out):
+def build(stations, now, out, offline=True):
     from PIL import Image, ImageDraw
     im = Image.new('RGBA',(48,48)); draw = ImageDraw.Draw(im)
     draw.ellipse((4,4,44,44),fill='white',outline='black',width=3)
@@ -241,20 +244,21 @@ def build(stations, now, out):
         js='<script>const built='+json.dumps(now.isoformat())+';async function refresh(){try{const r=await fetch("../nivose.json",{cache:"no-store"});if(!r.ok)return;const d=await r.json();if(d.generated_at!==built){const u=new URL(location.href);if(u.searchParams.get("v")!==d.generated_at){u.searchParams.set("v",d.generated_at);location.replace(u.href);}}}catch(e){}}refresh();setInterval(refresh,300000);</script>'
         (live_dir/(s['id']+'.html')).write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(s['name'])+'</title>'+style+'<body><p><a href="../nivose.html">Toutes les stations</a> · Actualisation de la page toutes les 5 minutes</p>'+body+js+'</body></html>')
     for name, selected in [('nivose-alpes',stations),('nivose-belledonne',[s for s in stations if s['id']=='38005402'])]:
-        kml = make_kml(selected,now)
+        kml = make_kml(selected,now,online_only=not offline)
         (out/(name+'.kml')).write_bytes(kml)
         with zipfile.ZipFile(out/(name+'.kmz'),'w',zipfile.ZIP_DEFLATED) as z:
             z.writestr('doc.kml',kml); z.writestr('icons/station.png',buf.getvalue())
             for s in selected:
-                if s.get('chart_local'):
+                if offline and s.get('chart_local'):
                     z.write(out/s['chart_local'],s['chart_local'])
     sections = ''.join('<li><a href="nivose/'+s['id']+'.html">'+html.escape(s['name'])+'</a> · '+str(s['altitude'])+' m</li>' for s in stations)
-    (out/'nivose.html').write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nivôse Alpes</title>'+style+'<body><h1>Nivôse Alpes</h1><p>Collecte toutes les deux heures, à H+15 aux heures paires (Paris), plus les passages BERA. Mesures horaires ; historique progressif de sept jours. GitHub peut retarder le démarrage.</p><p><a href="nivose-alpes.kmz">Télécharger KMZ Alpes hors ligne</a> · <a href="nivose-belledonne.kmz">KMZ Aigleton hors ligne</a></p><ul>'+sections+'</ul></body></html>')
+    (out/'nivose.html').write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nivôse Alpes</title>'+style+'<body><h1>Nivôse Alpes</h1><p><a href="hors-ligne.html">Paquet hors ligne — génération manuelle</a></p><p>Collecte à 06 h 30, 10 h 30, 14 h 30, 16 h 30, 18 h 30 et 20 h 30 (Paris). Mesures horaires ; historique progressif de trois jours. GitHub peut retarder le démarrage.</p><p><a href="nivose-alpes.kmz">Repères Alpes — liens vers les courbes</a> · <a href="nivose-belledonne.kmz">Repère Aigleton — lien vers les courbes</a></p><ul>'+sections+'</ul></body></html>')
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--output', default='dist'); ap.add_argument('--base-url',default='https://jfmouret.github.io/caf-bera')
+    ap.add_argument('--online-only',action='store_true')
     args = ap.parse_args(); out = Path(args.output); out.mkdir(parents=True,exist_ok=True)
     now = dt.datetime.now(dt.timezone.utc)
     catalog = json.loads((ROOT/'data/nivose-stations.json').read_text())
@@ -343,7 +347,7 @@ def main():
         s['live_url']=args.base_url.rstrip('/')+'/nivose/'+s['id']+'.html'
         print(s['name']+': '+str(len(s['history']))+' mesures ; '+(s['observation']['measured_at'] if s['observation'] else s.get('error','indisponible')),flush=True)
     result = dict(generated_at=now.isoformat(),source='Météo-France',licence=catalog['licence'],catalog_source=catalog['source'],access_error=access_error,stations=stations)
-    build(stations,now,out)
+    build(stations,now,out,offline=not args.online_only)
     (out/'nivose.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
     index = out/'index.html'
     if index.exists():

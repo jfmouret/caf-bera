@@ -343,12 +343,12 @@ def sub(p,tag,text=None,**attrs):
     if text is not None:e.text=str(text)
     return e
 
-def kml(features,bulletins,title,contours_base=None):
+def kml(features,bulletins,title,contours_base=None,online_links_only=False):
     root=ET.Element('{'+K+'}kml');doc=sub(root,'Document');sub(doc,'name',title)
     for f in features:
         p=f['properties'];b=bulletins[p['code']];level=None if contours_base else b['display_level'];rgb=COLORS[level]
         color='55'+rgb[4:6]+rgb[2:4]+rgb[0:2]
-        info=description(b)
+        info=description(b) if not online_links_only else ('<div style="font-size:18px;max-width:320px"><h2>'+html.escape(p['title'])+'</h2><p><a href="'+html.escape(contours_base.rstrip('/')+'/index.html#massif-'+str(p['code']),quote=True)+'"><b>Consulter le dernier BERA reçu — connexion requise</b></a></p><p>Repère permanent : les informations et dates sont consultées en ligne.</p></div>')
         pm=sub(doc,'Placemark');sub(pm,'name',p['title'] if contours_base else p['title']+' — '+(str(level)+'/5' if level else 'INDISPONIBLE')+' — '+title)
         sub(pm,'description',info);style=sub(pm,'Style');label=sub(style,'LabelStyle');sub(label,'scale',1.3);line=sub(style,'LineStyle');sub(line,'color',color);sub(line,'width',3)
         poly=sub(style,'PolyStyle');sub(poly,'color',color);sub(poly,'fill',0 if contours_base else 1);sub(poly,'outline',1)
@@ -447,19 +447,19 @@ def aqx(base,title,features=None):
             '<source id="CAFBERA2026V4" layer="true" opacity="100"><name>BERA V4 — '+html.escape(title)+'</name>'
             '<default-location>6.00201,45.27395</default-location>'+''.join(levels)+'</source></aqx>')
 
-def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
+def build(features,bs,out,now,base,errors=(),title='BERA',offline=False,online_only=False):
     out.mkdir(parents=True,exist_ok=True)
     for code,b in bs.items():
         if (out/'raw'/f'{code}.xml').exists():b['public_xml']=base.rstrip('/')+f'/raw/{code}.xml'
         if (out/'raw'/f'{code}.pdf').exists():b['public_pdf']=base.rstrip('/')+f'/raw/{code}.pdf'
         b['online_pdf']=base.rstrip('/')+f'/bulletins/{code}.html'
-        prepare_offline_images(b,out)
+        if not online_only:prepare_offline_images(b,out)
     for filename,fs in [('bera-alpes',features),('bera-belledonne',[f for f in features if f['properties']['code']==8])]:
-        if not fs:continue
+        if not fs or online_only:continue
         data=kml(fs,bs,title+' '+now.strftime('%Y-%m-%d %H:%M %Z'));(out/(filename+'.kml')).write_bytes(data)
         write_kmz(out/(filename+'.kmz'),data,fs,bs,out)
     (out/'bulletins.json').write_text(json.dumps({'generated_at':now.isoformat(),'errors':list(errors),'bulletins':list(bs.values())},ensure_ascii=False,indent=2))
-    data=kml(features,bs,'Contours BERA — bulletins hors ligne',base)
+    data=kml(features,bs,'Contours BERA — liens permanents' if online_only else 'Contours BERA — bulletins hors ligne',base,online_links_only=online_only)
     (out/'bera-contours.kml').write_bytes(data)
     write_kmz(out/'bera-contours.kmz',data,features,bs,out)
     (out/'bulletins').mkdir(exist_ok=True)
@@ -473,10 +473,15 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
     if offline:shutil.copyfile(out/'bera.mbtiles',out/'bera.mbtile')
     pages=''.join('<section id="massif-'+str(b['code'])+'">'+description(b)+'</section>' for b in bs.values())
     (out/'index.html').write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CAF BERA</title><style>body{font:19px/1.5 system-ui,sans-serif;max-width:42rem;margin:20px auto;padding:0 16px;overflow-wrap:anywhere}h1{font-size:1.5em}h2{font-size:1.3em}section{border-top:1px solid #ccc;margin-top:24px;padding-top:12px}a{line-height:1.7}</style><h1>'+html.escape(title)+'</h1><p>Généré '+now.isoformat()+'</p><p><a href="bera-alpes.kmz">KMZ Alpes</a> · <a href="bera-belledonne.kmz">KMZ Belledonne</a> · <a href="bera.aqx">AQX</a> · <a href="bera-contours.kmz">Contours et fiches en ligne</a></p><p>1 vert faible · 2 jaune limité · 3 orange marqué · 4 rouge fort · 5 rouge hachuré noir très fort · gris indisponible. La couleur est le maximum du massif, sans découpage altimétrique des pentes. AQX : actualisation à chaque affichage en ligne ; KML : réimporter la copie actualisée.</p>'+pages+'</html>')
+    if online_only:
+        index=out/'index.html'
+        text=index.read_text()
+        text=text.replace('<a href="bera-alpes.kmz">KMZ Alpes</a> · <a href="bera-belledonne.kmz">KMZ Belledonne</a> · ','<a href="hors-ligne.html">Paquet hors ligne sur demande</a> · ')
+        index.write_text(text)
     return n
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--demo',action='store_true');ap.add_argument('--all-alps',action='store_true');ap.add_argument('--base-url',default='http://127.0.0.1:8765');ap.add_argument('--mbtiles',action='store_true');args=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--demo',action='store_true');ap.add_argument('--all-alps',action='store_true');ap.add_argument('--base-url',default='http://127.0.0.1:8765');ap.add_argument('--mbtiles',action='store_true');ap.add_argument('--online-only',action='store_true');args=ap.parse_args()
     now=dt.datetime.now(PARIS);features=json.loads((ROOT/'data/massifs.geojson').read_text())['features']
     features=[f for f in features if f['properties']['mountain'].startswith('Alpes') and (args.all_alps or f['properties']['code'] in (7,8,12,14,15))]
     tmp=ROOT/('build-demo-temp' if args.demo else 'build-temp');shutil.rmtree(tmp,ignore_errors=True);tmp.mkdir();raw=tmp/'raw';raw.mkdir()
@@ -485,7 +490,7 @@ def main():
         b.update(state='ARCHIVE DU 15/02/2025 — EXERCICE UNIQUEMENT',display_level=b['maximum'],checked_at=now.isoformat(),notes=['Données historiques : jamais pour une sortie actuelle.'],source=ARCHIVE+'2025/02/15/xml/Belledonne_20250215162300.xml',pdf=(ROOT/'data/archive-2025-pdf-url.txt').read_text().strip() if (ROOT/'data/archive-2025-pdf-url.txt').exists() else None)
         bs={8:b};errors=[];title='ARCHIVE EXERCICE 2025'
     else:bs,errors=fetch(features,now,raw,args.base_url);title='BERA actuel — vérifier la validité'
-    n=build(features,bs,tmp,now,args.base_url,errors,title,args.mbtiles)
+    n=build(features,bs,tmp,now,args.base_url,errors,title,args.mbtiles,online_only=args.online_only)
     dest=ROOT/('demo' if args.demo else 'dist');shutil.rmtree(dest,ignore_errors=True);tmp.rename(dest)
     print(json.dumps({'output':str(dest),'tiles':n,'states':{b['name']:b['state'] for b in bs.values()}},ensure_ascii=False))
 if __name__=='__main__':main()

@@ -8,14 +8,19 @@ on:
       - 'data/**'
       - '.github/workflows/update.yml'
   workflow_dispatch:
+    inputs:
+      offline:
+        description: Générer et publier le paquet hors ligne
+        type: boolean
+        default: false
   schedule:
     - cron: '30 16,18,20 * * *'
       timezone: 'Europe/Paris'
-    - cron: '15 */2 * * *'
+    - cron: '30 6,10,14 * * *'
       timezone: 'Europe/Paris'
 permissions:
-  contents: read
-  actions: read
+  contents: write
+  actions: write
   pages: write
   id-token: write
 concurrency:
@@ -26,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      NIVOSE_ONLY: ${{ (github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[nivose]')) }}
+      NIVOSE_ONLY: ${{ (github.event_name == 'schedule' && github.event.schedule == '30 6,10,14 * * *') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[nivose]')) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +53,7 @@ jobs:
         if: env.NIVOSE_ONLY != 'true'
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
-        run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
+        run: python bera.py --all-alps --online-only --base-url https://jfmouret.github.io/caf-bera
       - name: Trouver la dernière publication à conserver
         if: env.NIVOSE_ONLY == 'true'
         id: previous
@@ -62,7 +67,7 @@ jobs:
         if: env.NIVOSE_ONLY == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: bera-fichiers
+          name: bera-en-ligne
           path: dist
           github-token: ${{ github.token }}
           repository: jfmouret/caf-bera
@@ -71,11 +76,21 @@ jobs:
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
           MF_OBS_API_KEY: ${{ secrets.MF_OBS_API_KEY }}
-        run: python nivose.py --output dist --base-url https://jfmouret.github.io/caf-bera
-      - name: Vérifier les séries et les graphiques Nivôse hors ligne
+        run: python nivose.py --online-only --output dist --base-url https://jfmouret.github.io/caf-bera
+      - name: Préparer les téléchargements et le paquet manuel éventuel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GENERATE_OFFLINE: ${{ github.event_name == 'workflow_dispatch' && inputs.offline }}
+        run: |
+          if [ "$GENERATE_OFFLINE" = true ]; then
+            python offline_package.py --generate --publish
+          else
+            python offline_package.py
+          fi
+      - name: Vérifier la publication légère
         run: |
           python - <<'PY'
-          import json,zipfile,io,xml.etree.ElementTree as ET,re
+          import json,zipfile,xml.etree.ElementTree as ET
           from pathlib import Path
           from PIL import Image
           from nivose import stamp
@@ -83,47 +98,38 @@ jobs:
           for s in d['stations']:
               h=s.get('history',[])
               ts=[stamp(b['measured_at']) for b in h]
-              assert ts==sorted(set(ts)), 'Historique désordonné ou dupliqué'
-              print(s['name'],len(h),'mesures',h[0]['measured_at'] if h else 'sans historique')
-          for filename in ('nivose-alpes.kmz','nivose-belledonne.kmz'):
-              with zipfile.ZipFile(Path('dist')/filename) as z:
+              assert ts==sorted(set(ts))
+              if s.get('chart_local'):Image.open(Path('dist')/s['chart_local']).verify()
+              print(s['name'],len(h),'mesures')
+          for f in ('bera-contours.kmz','nivose-alpes.kmz','nivose-belledonne.kmz'):
+              with zipfile.ZipFile(Path('dist')/f) as z:
                   assert z.testzip() is None
-                  root=ET.fromstring(z.read('doc.kml'))
-                  for e in root.iter():
-                      if e.tag.endswith('description') and e.text:
-                          for src in re.findall(r'src="([^"]+)"',e.text):
-                              Image.open(io.BytesIO(z.read(src))).verify()
-                  print(filename,'graphiques intégrés vérifiés')
-          PY
-      - name: Vérifier les illustrations hors ligne
-        run: python validate_offline.py
-      - name: Résumé des données obtenues
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          data=json.loads(Path('dist/bulletins.json').read_text())
-          bs=data['bulletins']
-          api=sum(b.get('source','').startswith('https://public-api.meteofrance.fr/') for b in bs)
-          valid=sum(b.get('nominal_valid',False) for b in bs)
-          displayed=sum(b['display_level'] is not None for b in bs)
-          print(f'Bulletins provenant de l API : {api}/{len(bs)} ; bulletins dans leur échéance initiale : {valid} ; derniers bulletins affichés : {displayed}.')
-          if not api: print('::warning::Aucun bulletin XML API obtenu. Consulter les statuts HTTP dans bulletins.json ; les archives servent de repli.')
-          obs=json.loads(Path('dist/nivose.json').read_text())
-          stations=obs['stations']
-          measured=sum(bool(s.get('observation')) for s in stations)
-          print(f'Nivôse : {measured}/{len(stations)} stations avec une mesure.')
-          if obs.get('access_error'): print('::warning::'+obs['access_error'])
-          if not measured: print('::warning::Aucune mesure Nivôse récupérée ; les repères indiquent leur indisponibilité.')
+                  assert not any(n.startswith(('media/','nivose-media/')) for n in z.namelist())
+                  ET.fromstring(z.read('doc.kml'))
+          assert not list(Path('dist').glob('*.mbtile*'))
+          assert not (Path('dist')/'bera-alpes.kmz').exists()
+          bs=json.loads(Path('dist/bulletins.json').read_text())['bulletins']
+          print('BERA affichés :',sum(b['display_level'] is not None for b in bs))
+          print('Nivôse avec mesure :',sum(bool(s.get('observation')) for s in d['stations']))
+          print('Taille des fichiers en ligne :',round(sum(p.stat().st_size for p in Path('dist').rglob('*') if p.is_file())/1000000,1),'Mo')
           Path('dist/.nojekyll').touch()
           PY
+      - name: Réduire les anciennes archives avant le nouveau transfert
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python prune_artifacts.py --before-upload --apply
       - uses: actions/upload-artifact@v4
         with:
-          name: bera-fichiers
+          name: bera-en-ligne
           path: dist
-          retention-days: 7
+          retention-days: 1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
       - uses: actions/deploy-pages@v4
+
+      - name: Limiter les archives après publication réussie
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python prune_artifacts.py --apply

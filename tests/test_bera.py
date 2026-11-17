@@ -50,6 +50,13 @@ class BeraTests(unittest.TestCase):
         self.assertIn(b['valid_until'],info)
         self.assertIn('stabilité',info)
         self.assertIn('https://host.test/bulletins/8.html',info)
+
+    def test_online_contours_only_have_permanent_links(self):
+        b=self.b.copy();b.update(checked_at='test',state='ARCHIVE',display_level=None,notes=[])
+        root=ET.fromstring(bera.kml(self.features,{8:b},'test','https://host.test',online_links_only=True))
+        info=root.find('.//{'+bera.K+'}description').text
+        self.assertIn('https://host.test/index.html#massif-8',info)
+        self.assertNotIn('Lecture hors ligne',info)
     def test_kmz_packages_local_images(self):
         with tempfile.TemporaryDirectory() as folder:
             out=Path(folder);(out/'media/8').mkdir(parents=True)
