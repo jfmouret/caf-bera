@@ -55,7 +55,8 @@ class BeraTests(unittest.TestCase):
         b=self.b.copy();b.update(checked_at='test',state='ARCHIVE',display_level=None,notes=[])
         root=ET.fromstring(bera.kml(self.features,{8:b},'test','https://host.test',online_links_only=True))
         info=root.find('.//{'+bera.K+'}description').text
-        self.assertIn('https://host.test/index.html#massif-8',info)
+        self.assertIn('https://host.test/bera/8.html',info)
+        self.assertIn('https://host.test/bulletins/8.html',info)
         self.assertNotIn('Lecture hors ligne',info)
     def test_kmz_packages_local_images(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -76,6 +77,41 @@ class BeraTests(unittest.TestCase):
         page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
         self.assertNotIn('window.location.replace',page)
         self.assertIn('indisponible',page)
+
+    def test_mobile_reader_keeps_official_text_dates_and_pdf_link(self):
+        b=self.b.copy();b.update(checked_at='2026-11-17T22:00:00+01:00',state='DERNIER BERA REÇU',display_level=b['maximum'],online_pdf='https://host.test/bulletins/8.html',notes=[])
+        page=bera.mobile_page(b,dt.datetime.now(bera.PARIS))
+        self.assertIn('width=device-width',page)
+        self.assertIn('https://host.test/bulletins/8.html',page)
+        self.assertIn('PDF officiel Météo-France',page)
+        self.assertIn('Lecture adaptée au téléphone',page)
+        self.assertNotIn('Lecture hors ligne',page)
+        import html
+        for key in ('resume','stabilite','accidentel','naturel','tendance','qualite'):
+            if b['texts'][key]:self.assertIn(html.escape(b['texts'][key]).replace('\n','<br/>'),page)
+        self.assertIn(bera.stamp(b['issued']).strftime('%d/%m/%Y'),page)
+
+    def test_mobile_reader_escapes_text_and_keeps_local_image_paths(self):
+        b=self.b.copy();b.update(checked_at='test',state='DERNIER BERA REÇU',display_level=b['maximum'],notes=[])
+        b['texts']=dict(b['texts'],resume='<script>untrusted()</script>')
+        b['offline_images']=[dict(path='media/8/cartouche.png',caption='Danger officiel')]
+        page=bera.mobile_page(b,dt.datetime.now(bera.PARIS))
+        self.assertNotIn('<script>untrusted()',page)
+        self.assertIn('&lt;script&gt;untrusted()',page)
+        self.assertIn('src="../media/8/cartouche.png"',page)
+
+    def test_mobile_reader_marks_missing_bulletin_without_inventing_level(self):
+        b=dict(code=8,name='Belledonne',checked_at='test',state='INDISPONIBLE',display_level=None,notes=[])
+        page=bera.mobile_page(b,dt.datetime.now(bera.PARIS))
+        self.assertIn('INDISPONIBLE',page)
+        self.assertNotIn('/5',page)
+
+    def test_online_kmz_does_not_bundle_reader_images(self):
+        with tempfile.TemporaryDirectory() as d:
+            b=dict(self.b,offline_images=[dict(path='media/8/cartouche.png')])
+            p=Path(d)/'online.kmz'
+            bera.write_kmz(p,b'<kml/>',self.features,{8:b},Path(d),embed_images=False)
+            with zipfile.ZipFile(p) as z:self.assertEqual(z.namelist(),['doc.kml'])
     def test_overview_has_no_displaced_labels(self):
         vercors=[f for f in json.loads((bera.ROOT/'data/massifs.geojson').read_text())['features'] if f['properties']['code']==14]
         bs={14:{'state':'INDISPONIBLE','display_level':None}}

@@ -8,6 +8,7 @@ Source : Météo-France — Licence Ouverte 2.0. Transformation indépendante po
 
 - Importer `bera.aqx` : afficher uniquement **BERA V4** au-dessus de son fond IGN.
 - Importer `bera-contours.kmz` : limites cliquables avec liens permanents vers les informations BERA actualisées.
+- Chaque massif propose deux liens : **Lire le BERA — fiche adaptée au téléphone** (page hébergée sur ce site, texte agrandi et pictogrammes officiels disponibles) et **PDF officiel Météo-France**. Les fiches sont accessibles à `bera/ID.html`, par exemple `bera/8.html` pour Belledonne. Les textes XML sont conservés sans résumé. Les illustrations sont découpées dans le PDF après contrôle du massif et de sa date ; seules les petites illustrations sont publiées en ligne, sans embarquer les pages PDF entières dans les repères légers. Si une illustration est indisponible, la fiche le signale et conserve l'accès au PDF complet.
 - Importer `nivose-alpes.kmz` : 20 stations cliquables avec liens permanents vers les courbes en ligne. `nivose-belledonne.kmz` est une alternative limitée à l'Aigleton, déjà inclus dans le fichier Alpes.
 - Les repères sont désormais légers : ils ouvrent les données en ligne. Les anciens imports hors ligne déjà enregistrés sur le téléphone restent des instantanés datés.
 
