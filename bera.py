@@ -28,7 +28,7 @@ def _download(url,headers=None):
             if url.startswith(API):
                 time.sleep(max(0,1.3-(time.monotonic()-_LAST_API_CALL)))
                 _LAST_API_CALL=time.monotonic()
-            req=urllib.request.Request(url,headers={'User-Agent':'CAF-BERA/1.0',**(headers or {})})
+            req=urllib.request.Request(url,headers={'User-Agent':'CAF-BERA/1.0','Cache-Control':'no-cache',**(headers or {})})
             with urllib.request.urlopen(req,timeout=25) as r:return r.read()
         except urllib.error.HTTPError as e:
             if e.code not in (429,500,502,503,504) or attempt==2:raise
@@ -329,9 +329,35 @@ def project(lon,lat,z):
     lat=max(-85.05112878,min(85.05112878,lat));n=2**z
     return ((lon+180)/360*n,(1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*n)
 
+def map_bounds(features,z):
+    coords=[]
+    for f in features:
+        g=f['geometry'];polys=[g['coordinates']] if g['type']=='Polygon' else g['coordinates']
+        coords.extend(project(x,y,z) for rings in polys for ring in rings for x,y,*_ in ring)
+    return (math.floor(min(x for x,y in coords)),math.floor(min(y for x,y in coords)),
+            math.floor(max(x for x,y in coords)),math.floor(max(y for x,y in coords)))
+
+def map_labels(features,bs,z):
+    # Un libellé par massif, ancré sur sa position géographique. Aucun texte dans
+    # les tuiles de vue générale : leur réutilisation agrandie créait des fantômes.
+    if z<9:return []
+    result=[]
+    for f in features:
+        p=f['properties'];b=bs[p['code']];level=b['display_level']
+        name=('ARCHIVE ' if 'ARCHIVE' in b['state'] else '')+p['title']
+        sprite=Image.new('RGBA',(256,256))
+        draw_tile_label(sprite,name,str(level)+'/5' if level else 'INDISPONIBLE',b.get('valid_until','?'),2)
+        box=sprite.getbbox()
+        if box is None:continue
+        sprite=sprite.crop(box)
+        ax,ay=project(p['lon_center'],p['lat_center'],z)
+        result.append((round(ax*256-sprite.width/2),round(ay*256-sprite.height/2),sprite))
+    return result
+
 def tiles(features,bs,out,zmin,zmax):
     count=0
     for z in range(zmin,zmax+1):
+        anchored_labels=map_labels(features,bs,z)
         geometries=[];coords=[]
         for f in features:
             g=f['geometry'];polys=[g['coordinates']] if g['type']=='Polygon' else g['coordinates']
@@ -340,7 +366,7 @@ def tiles(features,bs,out,zmin,zmax):
         xmin,ymin=map(math.floor,(min(x for x,y in coords),min(y for x,y in coords)));xmax,ymax=map(math.floor,(max(x for x,y in coords),max(y for x,y in coords)))
         for x in range(xmin,xmax+1):
             for y in range(ymin,ymax+1):
-                im=Image.new('RGBA',(256,256));labels=[]
+                im=Image.new('RGBA',(256,256))
                 for f,polys in geometries:
                     mask=Image.new('L',(256,256));d=ImageDraw.Draw(mask)
                     for rings in polys:
@@ -351,10 +377,12 @@ def tiles(features,bs,out,zmin,zmax):
                         hatch=Image.new('RGBA',(256,256));hd=ImageDraw.Draw(hatch)
                         for v in range(-256,512,12):hd.line((v,0,v-256,256),fill=(0,0,0,210),width=3)
                         hatch.putalpha(Image.composite(hatch.getchannel('A'),Image.new('L',(256,256)),mask));im=Image.alpha_composite(im,hatch)
-                    end=b.get('valid_until','?');labels.append((('ARCHIVE ' if 'ARCHIVE' in b['state'] else '')+f['properties']['title'],str(level)+'/5' if level else 'INDISPONIBLE',end))
-                # Conserver aussi les tuiles transparentes du rectangle de couverture.
-                y_label=2
-                for name,lev,end in labels[:3]:y_label=draw_tile_label(im,name,lev,end,y_label)
+                # Le même libellé est découpé sur la grille globale ; il ne se
+                # répète pas à chaque bord de tuile et reste au même endroit.
+                for left,top,sprite in anchored_labels:
+                    dx,dy=left-x*256,top-y*256
+                    if dx<256 and dy<256 and dx+sprite.width>0 and dy+sprite.height>0:
+                        im.alpha_composite(sprite,dest=(dx,dy))
                 path=out/'tiles'/str(z)/str(x)/f'{y}.png';path.parent.mkdir(parents=True,exist_ok=True);im.save(path);count+=1
     # Toutes les tuiles absentes sont desservies par une image transparente en serveur local.
     Image.new('RGBA',(256,256)).save(out/'empty.png')
@@ -367,10 +395,17 @@ def mbtiles(out):
         z,x,y=int(p.parts[-3]),int(p.parts[-2]),int(p.stem);db.execute('INSERT INTO tiles VALUES (?,?,?,?)',(z,x,2**z-1-y,p.read_bytes()))
     db.commit();db.close()
 
-def aqx(base,title):
-    url=html.escape(base.rstrip('/')+'/tiles/{$z}/{$x}/{$y}.png')
-    return f'''<?xml version="1.0" encoding="utf-8"?>
-<aqx version="11"><name>CAF BERA</name><description>Source Météo-France — Licence Ouverte 2.0. Vérifier la date imprimée.</description><source id="CAFBERA2026V2" layer="true" opacity="100"><name>{html.escape(title)}</name><default-location>6.00201,45.27395</default-location><zoom-levels z="6-12"><update-delay>0D</update-delay><max-threads>2</max-threads><server>{url}</server></zoom-levels></source></aqx>'''
+def aqx(base,title,features=None):
+    url=html.escape(base.rstrip('/')+'/tiles-v3/{$z}/{$x}/{$y}.png')
+    levels=[]
+    for z in range(6,13):
+        bounds=''
+        if features:bounds='<tiles-bounds>'+','.join(map(str,map_bounds(features,z)))+'</tiles-bounds>'
+        levels.append(f'<zoom-levels z="{z}">{bounds}<update-delay>0D</update-delay><max-threads>2</max-threads><server>{url}</server></zoom-levels>')
+    return ('<?xml version="1.0" encoding="utf-8"?>'
+            '<aqx version="11"><name>CAF BERA V3</name><description>Source Météo-France — Licence Ouverte 2.0. Gris : bulletin actuel indisponible. Contrôler la validité.</description>'
+            '<source id="CAFBERA2026V3" layer="true" opacity="100"><name>BERA V3 — '+html.escape(title)+'</name>'
+            '<default-location>6.00201,45.27395</default-location>'+''.join(levels)+'</source></aqx>')
 
 def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
     out.mkdir(parents=True,exist_ok=True)
@@ -392,7 +427,8 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
         pdf_url=(b.get('public_pdf') if (out/'raw'/f'{code}.pdf').exists() else b.get('pdf'))
         (out/'bulletins'/f'{code}.html').write_text(pdf_page(b,pdf_url))
     n=tiles(features,bs,out,6,12)
-    (out/'bera.aqx').write_text(aqx(base,title))
+    shutil.copytree(out/'tiles',out/'tiles-v3',dirs_exist_ok=True)
+    (out/'bera.aqx').write_text(aqx(base,title,features))
     if offline:mbtiles(out)
     if offline:shutil.copyfile(out/'bera.mbtiles',out/'bera.mbtile')
     pages=''.join('<section id="massif-'+str(b['code'])+'">'+description(b)+'</section>' for b in bs.values())

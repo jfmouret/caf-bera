@@ -1,3 +1,11 @@
+# Correction AQX V3
+
+Réimporter `bera.aqx` et afficher uniquement la couche **BERA V3** en masquant les anciennes couches BERA V1/V2. Le cache et les URL de tuiles V3 sont distincts. Les KMZ avec textes et illustrations hors ligne sont conservés.
+
+Les libellés sont désormais ancrés sur le centre géographique officiel de chaque massif, puis découpés sur la grille de tuiles. Ils ne sont plus répétés aux bords des tuiles. Les niveaux de vue générale 6–8 affichent les polygones sans bandeaux de texte pour éviter leur agrandissement depuis des tuiles de secours. Les limites de tuiles disponibles sont indiquées dans l'AQX à chaque niveau de zoom.
+
+Une absence de couleur de danger peut être normale : un bulletin expiré, futur ou indisponible reste gris. La génération conserve la date réelle du bulletin obtenu et n'attribue pas de nouveau danger par supposition.
+
 # CAF — BERA dynamique dans AlpineQuest
 
 Publication : https://jfmouret.github.io/caf-bera/
@@ -20,7 +28,7 @@ Après une modification du KMZ, masquer/supprimer l'ancien import puis importer 
 
 ## Lisibilité et accès au PDF
 
-Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La fin de validité reste visible. La version de cache AQX est `CAFBERA2026V2` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
+Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La fin de validité reste visible. La version de cache AQX est `CAFBERA2026V3` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
 
 Les fiches des contours contiennent le texte agrandi, les dates et les illustrations du bulletin enregistrées dans le KMZ. Le cartouche danger/altitude/orientations et les pictogrammes de situations avalancheuses sont repris du PDF officiel, sans redessin ni correspondance de code supposée. Les pages complètes du PDF sont aussi conservées comme images locales. Le nom du massif et la date de rédaction du PDF doivent correspondre au XML ; sinon les illustrations sont écartées et signalées comme indisponibles.
 

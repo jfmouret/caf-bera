@@ -41,7 +41,7 @@ class BeraTests(unittest.TestCase):
             db=sqlite3.connect(p/'bera.mbtiles');self.assertEqual(db.execute('select count(*) from tiles').fetchone()[0],n);db.close()
     def test_aqx_is_raster_layer(self):
         r=ET.fromstring(bera.aqx('https://host.test/bera','BERA'))
-        self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles/{$z}',r.find('.//server').text)
+        self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles-v3/{$z}',r.find('.//server').text)
     def test_contours_keep_offline_text_and_online_pdf(self):
         b=self.b.copy();b.update(checked_at='test',state='ARCHIVE',display_level=None,online_pdf='https://host.test/bulletins/8.html',notes=[])
         root=ET.fromstring(bera.kml(self.features,{8:b},'test','https://host.test'))
@@ -68,4 +68,20 @@ class BeraTests(unittest.TestCase):
         page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
         self.assertNotIn('window.location.replace',page)
         self.assertIn('indisponible',page)
+    def test_overview_has_no_displaced_labels(self):
+        vercors=[f for f in json.loads((bera.ROOT/'data/massifs.geojson').read_text())['features'] if f['properties']['code']==14]
+        bs={14:{'state':'INDISPONIBLE','display_level':None}}
+        self.assertEqual(bera.map_labels(vercors,bs,6),[])
+        with tempfile.TemporaryDirectory() as folder:
+            out=Path(folder);bera.tiles(vercors,bs,out,6,6)
+            # Cette tuile couvre aussi une zone très loin à l'ouest du Vercors.
+            # Le coin ne doit pas contenir un ancien cartouche blanc de tuile.
+            image=Image.open(next((out/'tiles/6').glob('*/*.png')))
+            self.assertEqual(image.getpixel((8,8))[3],0)
+    def test_one_label_per_massif_and_aqx_coverage(self):
+        b={'state':'INDISPONIBLE','display_level':None}
+        self.assertEqual(len(bera.map_labels(self.features,{8:b},9)),1)
+        r=ET.fromstring(bera.aqx('https://host.test','BERA',self.features))
+        for node in r.findall('.//zoom-levels'):
+            self.assertEqual(tuple(map(int,node.findtext('tiles-bounds').split(','))),bera.map_bounds(self.features,int(node.get('z'))))
 if __name__=='__main__':unittest.main()
