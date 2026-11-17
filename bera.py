@@ -71,6 +71,17 @@ def parse_xml(data,code):
 
 def active(b,now):return stamp(b['issued'])<=now<stamp(b['valid_until'])
 
+def apply_display_policy(b,now):
+    # Conserver les chiffres officiels du dernier bulletin reçu, sans modifier
+    # ni sa date de rédaction ni l'échéance inscrite dans le XML.
+    b['nominal_valid']=active(b,now)
+    published=stamp(b['issued'])<=now
+    b['display_level']=b['maximum'] if published else None
+    if not published:b['state']='BULLETIN DATÉ À VENIR'
+    elif b['nominal_valid']:b['state']='DERNIER BERA REÇU'
+    else:b['state']='DERNIER BERA REÇU — ÉCHÉANCE INITIALE DÉPASSÉE'
+    return b
+
 def normal_name(s):
     s=unicodedata.normalize('NFKD',s).encode('ascii','ignore').decode().upper()
     s=re.sub('[^A-Z0-9]','',s)
@@ -81,11 +92,16 @@ def archive_index(day):
     s=get(u).decode('utf-8')
     return sorted(set(urllib.parse.urljoin(u,html.unescape(x)) for x in re.findall(r'href="([^"]+\.xml)"',s)),reverse=True)
 
-def fetch(features,now,rawdir):
+def fetch(features,now,rawdir,previous_base=None):
     headers={}
     if os.getenv('MF_API_KEY'):headers['apikey']=os.environ['MF_API_KEY']
     elif os.getenv('MF_BEARER_TOKEN'):headers['Authorization']='Bearer '+os.environ['MF_BEARER_TOKEN']
-    indexes=[];errors=[];pdf_indexes={}
+    indexes=[];errors=[];pdf_indexes={};previous={}
+    if previous_base:
+        try:
+            snapshot=json.loads(get(previous_base.rstrip('/')+'/bulletins.json'))
+            previous={int(b['code']):b for b in snapshot.get('bulletins',[]) if b.get('issued')}
+        except Exception as e:errors.append('Copie précédente : '+type(e).__name__)
     # Archives publiques de secours, le bulletin d'hier peut rester valide aujourd'hui.
     for offset in range(3):
         try:indexes.extend(archive_index(now.date()-dt.timedelta(days=offset)))
@@ -117,18 +133,36 @@ def fetch(features,now,rawdir):
                         b=candidate;(rawdir/f'{code}.xml').write_bytes(data)
                     break
                 except Exception as e:notes.append('Archive : '+type(e).__name__)
+        prior=previous.get(code)
+        if prior:
+            try:
+                prior_issued=stamp(prior['issued'])
+                if prior_issued<=now and (b is None or stamp(b['issued'])>now or prior_issued>stamp(b['issued'])):
+                    data=get(previous_base.rstrip('/')+f'/raw/{code}.xml')
+                    retained=parse_xml(data,code)
+                    if stamp(retained['issued'])!=prior_issued:raise ValueError('copie précédente incohérente')
+                    retained['source']=prior.get('source') or previous_base.rstrip('/')+f'/raw/{code}.xml'
+                    retained['retained_previous']=True
+                    b=retained;(rawdir/f'{code}.xml').write_bytes(data)
+                    notes.append('Dernier bulletin conservé depuis la publication précédente')
+            except Exception as e:notes.append('Conservation précédente : '+type(e).__name__)
         if b:
-            b['state']='VALIDE' if active(b,now) else 'PÉRIMÉ OU FUTUR — DANGER ACTUEL INDISPONIBLE'
-            b['display_level']=b['maximum'] if active(b,now) else None
+            apply_display_policy(b,now)
             # Le nom du PDF est découvert dans son index, sans supposer le même horodatage.
             b['pdf']=None
-            if b['source'].startswith(API) and headers:
+            if b.get('retained_previous'):
+                try:
+                    payload=get(previous_base.rstrip('/')+f'/raw/{code}.pdf')
+                    if not payload.startswith(b'%PDF'):raise ValueError('Réponse non PDF')
+                    (rawdir/f'{code}.pdf').write_bytes(payload);b['pdf_local']=f'raw/{code}.pdf'
+                except Exception as e:notes.append('PDF précédent indisponible : '+type(e).__name__)
+            if b['source'].startswith(API) and headers and not b.get('retained_previous'):
                 try:
                     payload=get(API+'massif/BRA?id-massif='+str(code)+'&format=pdf',headers)
                     if not payload.startswith(b'%PDF'):raise ValueError('Réponse non PDF')
                     (rawdir/f'{code}.pdf').write_bytes(payload);b['pdf_local']=f'raw/{code}.pdf'
                 except Exception as e:notes.append('PDF API indisponible : '+type(e).__name__)
-            if b['source'].startswith(ARCHIVE):
+            if b['source'].startswith(ARCHIVE) and not b.get('retained_previous'):
                 daypath=b['source'].split('/xml/')[0]+'/pdf/'
                 try:
                     if daypath not in pdf_indexes:pdf_indexes[daypath]=get(daypath).decode()
@@ -222,6 +256,8 @@ def description(b):
         chunks.append(f"<p>Rédaction : {esc(b['issued'])}<br/>Fin de validité : {esc(b['valid_until'])}</p>")
         if b.get('online_pdf'):
             chunks.append(f'<p><a href="{esc(b["online_pdf"])}"><font size="5"><b>PDF officiel — connexion requise</b></font></a></p>')
+        if b.get('nominal_valid') is False and b.get('display_level') is not None:
+            chunks.append('<p>Affichage conservé du dernier bulletin reçu. Son échéance initiale est dépassée ; consulter sa date de publication.</p>')
         a=b['risk'];old=b['display_level'] is None
         chunks.append('<p><b>'+('DONNÉES ANCIENNES, PAS LE DANGER ACTUEL. ' if old else '')+'Estimation à l’échelle du massif.</b></p>')
         for i in (1,2):
@@ -257,14 +293,14 @@ def pdf_page(b,pdf_url=None):
           'a{display:inline-block;background:#163e57;color:white;padding:14px 18px;border-radius:8px}h1{font-size:1.4em}</style></head><body>'
           f'<h1>BERA {esc(b["name"])}</h1>')
     if pdf_url and b.get('display_level') is not None:
-        page+=(f'<p id="status">Ouverture du PDF officiel…</p><p>Fin de validité : {esc(b["valid_until"])}</p>'
+        page+=(f'<p id="status">Ouverture du dernier PDF reçu…</p><p>Publication : {esc(b["issued"])}<br/>Échéance initiale : {esc(b["valid_until"])}</p>'
                f'<p><a href="{esc(pdf_url)}">Ouvrir le PDF Météo-France</a></p>')
-        # Vérification côté téléphone : ne pas ouvrir silencieusement un ancien bulletin
-        # si la publication serveur n'a pas pu être renouvelée avant son échéance.
+        # Ouvrir le dernier PDF publié même après son échéance initiale,
+        # tout en gardant ses dates inchangées dans la fiche et sur le document.
         js=lambda x:json.dumps(x,ensure_ascii=True).replace('<',chr(92)+'u003c')
         page+=('<script>const from=Date.parse('+js(b['issued'])+');const until=Date.parse('+js(b['valid_until'])+');'
-               'if(Date.now()>=from&&Date.now()<until){window.location.replace('+js(pdf_url)+');}'
-               'else{document.getElementById("status").textContent="Bulletin périmé ou pas encore valide. Vérifier les dates avant d’ouvrir le PDF archivé.";}</script>')
+               'if(Date.now()>=from){window.location.replace('+js(pdf_url)+');}'
+               'else{document.getElementById("status").textContent="Bulletin daté à venir. Vérifier la date de publication.";}</script>')
     else:
         page+='<p><b>BERA PDF actuel indisponible.</b></p><p>'+esc(b.get('state','INDISPONIBLE'))+'</p>'
         if b.get('valid_until'):page+='<p>Échéance du bulletin obtenu : '+esc(b['valid_until'])+'</p>'
@@ -275,7 +311,7 @@ def tile_font(size):
     try:return ImageFont.truetype('DejaVuSans.ttf',size)
     except OSError:return ImageFont.load_default(size=size)
 
-def label_lines(name,level,end):
+def label_lines(name,level,end,issued=None):
     first=f'{name} {level}'
     # Respecter la largeur d'une tuile, y compris les longs noms de massifs.
     font=tile_font(16);probe=ImageDraw.Draw(Image.new('RGBA',(1,1)))
@@ -287,10 +323,14 @@ def label_lines(name,level,end):
     lines.append(line)
     try:expiry=stamp(end).strftime('%d/%m %H:%M')
     except (ValueError,TypeError):expiry='non disponible'
+    if issued:
+        try:publication=stamp(issued).strftime('%d/%m %H:%M')
+        except (ValueError,TypeError):publication=str(issued)
+        return lines+['Publié '+publication,'Échéance '+expiry]
     return lines+['Fin '+expiry]
 
-def draw_tile_label(im,name,level,end,y):
-    draw=ImageDraw.Draw(im);lines=label_lines(name,level,end);font=tile_font(16)
+def draw_tile_label(im,name,level,end,y,issued=None):
+    draw=ImageDraw.Draw(im);lines=label_lines(name,level,end,issued);font=tile_font(16)
     widths=[draw.textbbox((0,0),line,font=font)[2] for line in lines]
     width=min(252,max(widths)+12);height=22*len(lines)+8
     if y+height>254:return y
@@ -346,7 +386,7 @@ def map_labels(features,bs,z):
         p=f['properties'];b=bs[p['code']];level=b['display_level']
         name=('ARCHIVE ' if 'ARCHIVE' in b['state'] else '')+p['title']
         sprite=Image.new('RGBA',(256,256))
-        draw_tile_label(sprite,name,str(level)+'/5' if level else 'INDISPONIBLE',b.get('valid_until','?'),2)
+        draw_tile_label(sprite,name,str(level)+'/5' if level else 'INDISPONIBLE',b.get('valid_until','?'),2,b.get('issued'))
         box=sprite.getbbox()
         if box is None:continue
         sprite=sprite.crop(box)
@@ -419,7 +459,7 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
         data=kml(fs,bs,title+' '+now.strftime('%Y-%m-%d %H:%M %Z'));(out/(filename+'.kml')).write_bytes(data)
         write_kmz(out/(filename+'.kmz'),data,fs,bs,out)
     (out/'bulletins.json').write_text(json.dumps({'generated_at':now.isoformat(),'errors':list(errors),'bulletins':list(bs.values())},ensure_ascii=False,indent=2))
-    data=kml(features,bs,'Contours BERA — fiches en ligne',base)
+    data=kml(features,bs,'Contours BERA — bulletins hors ligne',base)
     (out/'bera-contours.kml').write_bytes(data)
     write_kmz(out/'bera-contours.kmz',data,features,bs,out)
     (out/'bulletins').mkdir(exist_ok=True)
@@ -444,7 +484,7 @@ def main():
         features=[f for f in features if f['properties']['code']==8];b=parse_xml((ROOT/'data/archive-2025.xml').read_bytes(),8)
         b.update(state='ARCHIVE DU 15/02/2025 — EXERCICE UNIQUEMENT',display_level=b['maximum'],checked_at=now.isoformat(),notes=['Données historiques : jamais pour une sortie actuelle.'],source=ARCHIVE+'2025/02/15/xml/Belledonne_20250215162300.xml',pdf=(ROOT/'data/archive-2025-pdf-url.txt').read_text().strip() if (ROOT/'data/archive-2025-pdf-url.txt').exists() else None)
         bs={8:b};errors=[];title='ARCHIVE EXERCICE 2025'
-    else:bs,errors=fetch(features,now,raw);title='BERA actuel — vérifier la validité'
+    else:bs,errors=fetch(features,now,raw,args.base_url);title='BERA actuel — vérifier la validité'
     n=build(features,bs,tmp,now,args.base_url,errors,title,args.mbtiles)
     dest=ROOT/('demo' if args.demo else 'dist');shutil.rmtree(dest,ignore_errors=True);tmp.rename(dest)
     print(json.dumps({'output':str(dest),'tiles':n,'states':{b['name']:b['state'] for b in bs.values()}},ensure_ascii=False))

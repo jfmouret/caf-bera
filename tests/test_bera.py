@@ -59,11 +59,12 @@ class BeraTests(unittest.TestCase):
             with zipfile.ZipFile(out/'test.kmz') as z:
                 self.assertIsNone(z.testzip())
                 self.assertIn('media/8/picto.png',z.namelist())
-    def test_pdf_route_only_redirects_when_bulletin_valid(self):
+    def test_pdf_route_opens_last_published_pdf(self):
         b=self.b.copy();b['display_level']=b['maximum']
         page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
         self.assertIn('window.location.replace',page)
-        self.assertIn('Date.now()<until',page)
+        self.assertIn('Date.now()>=from',page)
+        self.assertNotIn('Date.now()<until',page)
         b['display_level']=None
         page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
         self.assertNotIn('window.location.replace',page)
@@ -84,4 +85,26 @@ class BeraTests(unittest.TestCase):
         r=ET.fromstring(bera.aqx('https://host.test','BERA',self.features))
         for node in r.findall('.//zoom-levels'):
             self.assertEqual(tuple(map(int,node.findtext('tiles-bounds').split(','))),bera.map_bounds(self.features,int(node.get('z'))))
+    def test_last_bulletin_keeps_official_danger_after_expiry(self):
+        b=self.b.copy();issued=b['issued'];until=b['valid_until']
+        bera.apply_display_policy(b,bera.stamp(until)+dt.timedelta(days=2))
+        self.assertEqual(b['display_level'],b['maximum'])
+        self.assertFalse(b['nominal_valid'])
+        self.assertEqual((b['issued'],b['valid_until']),(issued,until))
+        self.assertIn('ÉCHÉANCE INITIALE DÉPASSÉE',b['state'])
+    def test_future_bulletin_is_not_shown_as_published(self):
+        b=self.b.copy();bera.apply_display_policy(b,bera.stamp(b['issued'])-dt.timedelta(seconds=1))
+        self.assertIsNone(b['display_level'])
+    def test_previous_published_xml_survives_api_failure(self):
+        now=bera.stamp(self.b['valid_until'])+dt.timedelta(days=1)
+        snapshot={'bulletins':[{'code':8,'issued':self.b['issued'],'source':bera.API+'massif/BRA?id-massif=8&format=xml'}]}
+        def response(url,headers=None):
+            if url.endswith('/bulletins.json'):return json.dumps(snapshot).encode()
+            if url.endswith('/raw/8.xml'):return self.raw
+            raise OSError('offline')
+        with tempfile.TemporaryDirectory() as folder,patch('bera.get',side_effect=response),patch.dict('os.environ',{},clear=True):
+            bs,_=bera.fetch(self.features,now,Path(folder),'https://host.test')
+            self.assertEqual(bs[8]['display_level'],self.b['maximum'])
+            self.assertTrue(bs[8]['retained_previous'])
+            self.assertEqual((Path(folder)/'8.xml').read_bytes(),self.raw)
 if __name__=='__main__':unittest.main()

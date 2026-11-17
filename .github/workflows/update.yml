@@ -9,7 +9,8 @@ on:
       - '.github/workflows/update.yml'
   workflow_dispatch:
   schedule:
-    - cron: '25 5,11,17,21 * * *'
+    - cron: '30 16,18,20 * * *'
+      timezone: 'Europe/Paris'
 permissions:
   contents: read
   pages: write
@@ -51,8 +52,9 @@ jobs:
           data=json.loads(Path('dist/bulletins.json').read_text())
           bs=data['bulletins']
           api=sum(b.get('source','').startswith('https://public-api.meteofrance.fr/') for b in bs)
-          valid=sum(b['display_level'] is not None for b in bs)
-          print(f'Bulletins provenant de l API : {api}/{len(bs)} ; bulletins valides : {valid}.')
+          valid=sum(b.get('nominal_valid',False) for b in bs)
+          displayed=sum(b['display_level'] is not None for b in bs)
+          print(f'Bulletins provenant de l API : {api}/{len(bs)} ; bulletins dans leur échéance initiale : {valid} ; derniers bulletins affichés : {displayed}.')
           if not api: print('::warning::Aucun bulletin XML API obtenu. Consulter les statuts HTTP dans bulletins.json ; les archives servent de repli.')
           Path('dist/.nojekyll').touch()
           PY

@@ -4,7 +4,7 @@ Réimporter `bera.aqx` et afficher uniquement la couche **BERA V3** en masquant 
 
 Les libellés sont désormais ancrés sur le centre géographique officiel de chaque massif, puis découpés sur la grille de tuiles. Ils ne sont plus répétés aux bords des tuiles. Les niveaux de vue générale 6–8 affichent les polygones sans bandeaux de texte pour éviter leur agrandissement depuis des tuiles de secours. Les limites de tuiles disponibles sont indiquées dans l'AQX à chaque niveau de zoom.
 
-Une absence de couleur de danger peut être normale : un bulletin expiré, futur ou indisponible reste gris. La génération conserve la date réelle du bulletin obtenu et n'attribue pas de nouveau danger par supposition.
+Le dernier BERA reçu conserve sa couleur jusqu'à son remplacement, même après son échéance initiale. La publication et l'échéance d'origine sont affichées, sans modification des dates ni du niveau officiel. Un bulletin daté à venir ou l'absence de bulletin exploitable reste gris.
 
 # CAF — BERA dynamique dans AlpineQuest
 
@@ -28,7 +28,7 @@ Après une modification du KMZ, masquer/supprimer l'ancien import puis importer 
 
 ## Lisibilité et accès au PDF
 
-Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La fin de validité reste visible. La version de cache AQX est `CAFBERA2026V3` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
+Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La date de publication et l'échéance initiale restent visibles. La version de cache AQX est `CAFBERA2026V3` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
 
 Les fiches des contours contiennent le texte agrandi, les dates et les illustrations du bulletin enregistrées dans le KMZ. Le cartouche danger/altitude/orientations et les pictogrammes de situations avalancheuses sont repris du PDF officiel, sans redessin ni correspondance de code supposée. Les pages complètes du PDF sont aussi conservées comme images locales. Le nom du massif et la date de rédaction du PDF doivent correspondre au XML ; sinon les illustrations sont écartées et signalées comme indisponibles.
 
@@ -41,7 +41,7 @@ Le KMZ Belledonne a été validé par l'utilisateur sur Android : zone sélectio
 
 ## Production automatique
 
-Le workflow `.github/workflows/update.yml` est installé sur `main`. Il se déclenche sur les changements de code, manuellement, et à 05:25, 11:25, 17:25 et 21:25 UTC (06:25, 12:25, 18:25 et 22:25 en France en hiver).
+Le workflow `.github/workflows/update.yml` est installé sur `main`. Il se déclenche sur les changements de code, manuellement, et à **16 h 30, 18 h 30 et 20 h 30, heure de Paris**, tous les jours. Le fuseau `Europe/Paris` gère automatiquement les changements d'heure. GitHub peut retarder le démarrage d'une exécution.
 
 Il utilise le secret de dépôt `MF_API_KEY`, teste le parseur, télécharge XML et PDF via l'API officielle, crée les KML/KMZ, PNG RGBA, AQX et MBTiles, conserve une archive d'exécution pendant 7 jours et publie via GitHub Pages. Le secret ne doit jamais être placé dans le code, un AQX, un fichier public ou une discussion.
 
@@ -60,13 +60,13 @@ python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-be
 python serve.py --directory dist
 ```
 
-Sans clé, le script utilise les archives publiques du jour et des deux jours précédents. Les dates des XML déterminent l'état ; aucun ancien niveau n'est présenté comme actuel. Les erreurs HTTP, le contrôle du massif et les dates sont consignés dans `bulletins.json`. Les codes et textes d'origine sont conservés. `--demo` produit séparément un exercice historique Belledonne, à ne jamais utiliser comme bulletin actuel.
+Sans clé, le script utilise les archives publiques du jour et des deux jours précédents. La dernière copie publiée est aussi recherchée pour conserver le bulletin en cas d'échec de téléchargement ou de réponse plus ancienne. Les dates des XML déterminent l'état ; un dépassement de l'échéance initiale est explicitement signalé, et le dernier niveau officiel reste affiché jusqu'au remplacement. Les erreurs HTTP, le contrôle du massif et les dates sont consignés dans `bulletins.json`. Les codes et textes d'origine sont conservés. `--demo` produit séparément un exercice historique Belledonne, à ne jamais utiliser comme bulletin actuel.
 
 ## Interprétation et limites
 
 La couleur correspond au **maximum du massif**, pas au risque local d'une pente. Les niveaux séparés par altitude ou localisation figurent dans les descriptions et le PDF. Aucun découpage des pentes par altitude n'est inventé. Taillefer n'est pas un massif indépendant dans le GeoJSON officiel joint.
 
-1 vert faible, 2 jaune limité, 3 orange marqué, 4 rouge fort, 5 rouge hachuré noir dans les tuiles ; gris : danger actuel indisponible. Les hachures ne sont pas reproduites dans les polygones KML. Les tuiles sont produites aux niveaux XYZ 6–12 et les MBTiles sont indexés en TMS avec alpha PNG.
+1 vert faible, 2 jaune limité, 3 orange marqué, 4 rouge fort, 5 rouge hachuré noir dans les tuiles ; gris : aucun bulletin exploitable ou bulletin daté à venir. Ces couleurs représentent le dernier bulletin reçu ; consulter sa date de publication. Les hachures ne sont pas reproduites dans les polygones KML. Les tuiles sont produites aux niveaux XYZ 6–12 et les MBTiles sont indexés en TMS avec alpha PNG.
 
 Un cache, un KMZ ou un MBTiles peut conserver un ancien bulletin : **contrôler les dates avant utilisation**, notamment hors connexion. Une panne d'exécution peut laisser l'ancienne publication en ligne. `0D` demande l'actualisation à l'affichage, sans garantir un changement instantané sur une vue immobile. GitHub peut retarder une tâche planifiée.
 
