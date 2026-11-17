@@ -1,0 +1,167 @@
+{
+  "source": "https://www.data.gouv.fr/api/1/datasets/r/4250e317-1176-425d-880c-ebe9205efc89",
+  "retrieved": "2026-11-17",
+  "licence": "Licence Ouverte 2.0 — Météo-France",
+  "stations": [
+    {
+      "id": "04096401",
+      "name": "RESTEFOND-NIVOSE",
+      "latitude": 44.34,
+      "longitude": 6.8,
+      "altitude": 2550,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "05044400",
+      "name": "PARPAILLON-NIVOSE",
+      "latitude": 44.495333,
+      "longitude": 6.636333,
+      "altitude": 2545,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "05063402",
+      "name": "LA MEIJE-NIVOSE",
+      "latitude": 45.012333,
+      "longitude": 6.265167,
+      "altitude": 3093,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "05077402",
+      "name": "COL AGNEL-NIVOSE",
+      "latitude": 44.686,
+      "longitude": 6.972167,
+      "altitude": 2630,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "05079402",
+      "name": "GALIBIER-NIVOSE",
+      "latitude": 45.056833,
+      "longitude": 6.377167,
+      "altitude": 2559,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "05096404",
+      "name": "ORCIERES-NIVOSE",
+      "latitude": 44.719,
+      "longitude": 6.333667,
+      "altitude": 2280,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "06153400",
+      "name": "MILLEFONTS-NIVOSE",
+      "latitude": 44.118333,
+      "longitude": 7.192,
+      "altitude": 2430,
+      "region": "Alpes du Sud"
+    },
+    {
+      "id": "38005402",
+      "name": "AIGLETON-NIVOSE",
+      "latitude": 45.231,
+      "longitude": 6.038167,
+      "altitude": 2240,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "38187400",
+      "name": "LE GUA-NIVOSE",
+      "latitude": 45.015,
+      "longitude": 5.588667,
+      "altitude": 1646,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "38375402",
+      "name": "LES ECRINS-NIVOSE",
+      "latitude": 44.936833,
+      "longitude": 6.346167,
+      "altitude": 2970,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "38395403",
+      "name": "ST HILAIRE-NIVOSE",
+      "latitude": 45.313833,
+      "longitude": 5.8635,
+      "altitude": 1756,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "38472403",
+      "name": "COL DE PORTE-NIVOSE",
+      "latitude": 45.295,
+      "longitude": 5.765333,
+      "altitude": 1325,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73040402",
+      "name": "BONNEVAL-NIVOSE",
+      "latitude": 45.351667,
+      "longitude": 7.051167,
+      "altitude": 2741,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73071403",
+      "name": "BELLECOTE-NIVOSE",
+      "latitude": 45.489,
+      "longitude": 6.771167,
+      "altitude": 2992,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73093001",
+      "name": "GRANDE PAREI-NIVOSE",
+      "latitude": 45.614667,
+      "longitude": 6.6475,
+      "altitude": 2260,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73139401",
+      "name": "ALLANT-NIVOSE",
+      "latitude": 45.663833,
+      "longitude": 6.211833,
+      "altitude": 1684,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73296406",
+      "name": "LE CHEVRIL-NIVOSE",
+      "latitude": 45.499667,
+      "longitude": 6.955333,
+      "altitude": 2559,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "73306401",
+      "name": "LES ROCHILLES-NIVOSE",
+      "latitude": 45.085,
+      "longitude": 6.469,
+      "altitude": 2444,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "74056405",
+      "name": "AIGUILLES ROUGES-NIVOSE",
+      "latitude": 45.986333,
+      "longitude": 6.896833,
+      "altitude": 2365,
+      "region": "Alpes du Nord"
+    },
+    {
+      "id": "74056421",
+      "name": "COUVERCLE-NIVOSE",
+      "latitude": 45.909667,
+      "longitude": 6.958833,
+      "altitude": 2758,
+      "region": "Alpes du Nord"
+    }
+  ]
+}

@@ -42,6 +42,11 @@ jobs:
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
+      - name: Générer les stations Nivôse Alpes
+        env:
+          MF_API_KEY: ${{ secrets.MF_API_KEY }}
+          MF_OBS_API_KEY: ${{ secrets.MF_OBS_API_KEY }}
+        run: python nivose.py --output dist --base-url https://jfmouret.github.io/caf-bera
       - name: Vérifier les illustrations hors ligne
         run: python validate_offline.py
       - name: Résumé des données obtenues
