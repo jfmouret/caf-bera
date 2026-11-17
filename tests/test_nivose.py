@@ -101,3 +101,5 @@ class NivoseTests(unittest.TestCase):
                 self.assertIn(s['live_url'],desc)
                 self.assertNotIn('Mesure du ',desc)
             self.assertTrue((out/'nivose-media/38005402.png').exists())
+            self.assertLess((out/'nivose-version.json').stat().st_size,100)
+            self.assertIn('fetch("../nivose-version.json"',(out/'nivose/38005402.html').read_text())
