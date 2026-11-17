@@ -11,8 +11,11 @@ on:
   schedule:
     - cron: '30 16,18,20 * * *'
       timezone: 'Europe/Paris'
+    - cron: '15 */2 * * *'
+      timezone: 'Europe/Paris'
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 concurrency:
@@ -31,6 +34,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - name: Vérifier la présence de la clé
+        if: github.event_name != 'schedule' || github.event.schedule != '15 */2 * * *'
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: |
@@ -39,14 +43,56 @@ jobs:
             exit 1
           fi
       - name: Générer les données actuelles
+        if: github.event_name != 'schedule' || github.event.schedule != '15 */2 * * *'
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
+      - name: Trouver la dernière publication à conserver
+        if: github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *'
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh api 'repos/jfmouret/caf-bera/actions/workflows/update.yml/runs?status=success&per_page=1' --jq '.workflow_runs[0].id')
+          test "$run_id" != null
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+      - name: Reprendre les fichiers BERA et l'historique publiés
+        if: github.event_name == 'schedule' && github.event.schedule == '15 */2 * * *'
+        uses: actions/download-artifact@v4
+        with:
+          name: bera-fichiers
+          path: dist
+          github-token: ${{ github.token }}
+          repository: jfmouret/caf-bera
+          run-id: ${{ steps.previous.outputs.run_id }}
       - name: Générer les stations Nivôse Alpes
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
           MF_OBS_API_KEY: ${{ secrets.MF_OBS_API_KEY }}
         run: python nivose.py --output dist --base-url https://jfmouret.github.io/caf-bera
+      - name: Vérifier les séries et les graphiques Nivôse hors ligne
+        run: |
+          python - <<'PY'
+          import json,zipfile,io,xml.etree.ElementTree as ET,re
+          from pathlib import Path
+          from PIL import Image
+          from nivose import stamp
+          d=json.loads(Path('dist/nivose.json').read_text())
+          for s in d['stations']:
+              h=s.get('history',[])
+              ts=[stamp(b['measured_at']) for b in h]
+              assert ts==sorted(set(ts)), 'Historique désordonné ou dupliqué'
+              print(s['name'],len(h),'mesures',h[0]['measured_at'] if h else 'sans historique')
+          for filename in ('nivose-alpes.kmz','nivose-belledonne.kmz'):
+              with zipfile.ZipFile(Path('dist')/filename) as z:
+                  assert z.testzip() is None
+                  root=ET.fromstring(z.read('doc.kml'))
+                  for e in root.iter():
+                      if e.tag.endswith('description') and e.text:
+                          for src in re.findall(r'src="([^"]+)"',e.text):
+                              Image.open(io.BytesIO(z.read(src))).verify()
+                  print(filename,'graphiques intégrés vérifiés')
+          PY
       - name: Vérifier les illustrations hors ligne
         run: python validate_offline.py
       - name: Résumé des données obtenues

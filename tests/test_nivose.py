@@ -52,3 +52,39 @@ class NivoseTests(unittest.TestCase):
         self.assertEqual(len({s['id'] for s in rows}),len(rows))
         self.assertTrue(any(s['id']=='38005402' and s['altitude']==2240 for s in rows))
         self.assertEqual({s['region'] for s in rows},{'Alpes du Nord','Alpes du Sud'})
+
+    def test_history_merge_deduplicates_utc_and_keeps_seven_days(self):
+        old=[dict(measured_at='2026-11-17T20:00:00+01:00',snow_cm=2),
+             dict(measured_at='2026-11-09T19:00:00Z',snow_cm=99),
+             dict(measured_at='2026-11-18T19:00:00Z',snow_cm=99)]
+        new=[dict(measured_at='2026-11-17T19:00:00Z',snow_cm=3)]
+        h=nivose.merge_history(old,new,self.now)
+        self.assertEqual(len(h),1);self.assertEqual(h[0]['snow_cm'],3)
+
+    def test_missing_hours_backfills_only_recent_gaps(self):
+        h=[dict(measured_at='2026-11-17T19:00:00Z')]
+        hours=nivose.missing_hours(h,self.now)
+        self.assertEqual(len(hours),22)
+        self.assertNotIn(dt.datetime(2026,11,17,19,tzinfo=dt.timezone.utc),hours)
+        self.assertTrue(all(self.now-dt.timedelta(hours=24)<t<self.now for t in hours))
+
+    def test_graph_breaks_across_missing_hours(self):
+        import math
+        h=[dict(measured_at='2026-11-17T16:00:00Z',snow_cm=0),dict(measured_at='2026-11-17T19:00:00Z',snow_cm=3)]
+        times,values=nivose.graph_series(h,'snow_cm')
+        self.assertEqual(len(times),3);self.assertTrue(math.isnan(values[1]))
+
+    def test_kmz_embeds_chart_and_has_permanent_online_link(self):
+        from PIL import Image
+        b=nivose.parse_observation(self.payload(),'38005402',self.now)
+        s=dict(self.station,observation=b,history=[b],live_url='https://example.org/nivose/38005402.html')
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d);nivose.build([s],self.now,out)
+            with zipfile.ZipFile(out/'nivose-belledonne.kmz') as z:
+                self.assertIn('nivose-media/38005402.png',z.namelist())
+                import io
+                Image.open(io.BytesIO(z.read('nivose-media/38005402.png'))).verify()
+                root=ET.fromstring(z.read('doc.kml'));desc=root.findtext('.//{'+nivose.K+'}Placemark/{'+nivose.K+'}description')
+                self.assertIn('https://example.org/nivose/38005402.html',desc)
+                self.assertIn('src="nivose-media/38005402.png"',desc)
+            self.assertIn('cache:"no-store"',(out/'nivose/38005402.html').read_text())
