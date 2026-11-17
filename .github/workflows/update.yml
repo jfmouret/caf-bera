@@ -61,6 +61,12 @@ jobs:
           displayed=sum(b['display_level'] is not None for b in bs)
           print(f'Bulletins provenant de l API : {api}/{len(bs)} ; bulletins dans leur échéance initiale : {valid} ; derniers bulletins affichés : {displayed}.')
           if not api: print('::warning::Aucun bulletin XML API obtenu. Consulter les statuts HTTP dans bulletins.json ; les archives servent de repli.')
+          obs=json.loads(Path('dist/nivose.json').read_text())
+          stations=obs['stations']
+          measured=sum(bool(s.get('observation')) for s in stations)
+          print(f'Nivôse : {measured}/{len(stations)} stations avec une mesure.')
+          if obs.get('access_error'): print('::warning::'+obs['access_error'])
+          if not measured: print('::warning::Aucune mesure Nivôse récupérée ; les repères indiquent leur indisponibilité.')
           Path('dist/.nojekyll').touch()
           PY
       - uses: actions/upload-artifact@v4
