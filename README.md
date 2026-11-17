@@ -9,7 +9,7 @@ Source : **Météo-France**, Licence Ouverte 2.0 et conditions de l'API jointes 
 | Fichier publié | Fonction |
 |---|---|
 | `bera.aqx` | Tuiles transparentes BERA au-dessus du fond IGN ; actualisation en ligne |
-| `bera-contours.kmz` | Contours des 23 massifs alpins, avec un gros lien vers leur PDF actualisé |
+| `bera-contours.kmz` | Contours neutres des 23 massifs, texte agrandi et illustrations hors ligne, avec un lien PDF en ligne |
 | `bera-belledonne.kmz` | Instantané détaillé Belledonne |
 | `bera-alpes.kmz` | Instantané détaillé des 23 massifs |
 | `bera.mbtile`, `bera.mbtiles` | Instantané raster facultatif pour le hors ligne |
@@ -22,11 +22,14 @@ Après une modification du KMZ, masquer/supprimer l'ancien import puis importer 
 
 Les bandeaux des tuiles utilisent un texte de 16 pixels et une largeur ajustée au contenu. Les noms longs sont répartis sur plusieurs lignes. La fin de validité reste visible. La version de cache AQX est `CAFBERA2026V2` : réimporter l'AQX, puis masquer l'ancienne couche si elle reste affichée.
 
-Les fiches des contours proposent « OUVRIR LE BERA PDF » en grand. Ce lien ouvre `bulletins/ID.html`, une adresse stable propre au massif, qui bascule vers la copie du PDF officiel sans clic supplémentaire sur une fiche web. Si le bulletin/PDF est indisponible, l'indisponibilité est affichée. Un contrôle de l'heure du téléphone empêche la redirection automatique après la fin de validité ou avant la rédaction. Le PDF reste aussi accessible manuellement pour consultation de son archive clairement datée.
+Les fiches des contours contiennent le texte agrandi, les dates et les illustrations du bulletin enregistrées dans le KMZ. Le cartouche danger/altitude/orientations et les pictogrammes de situations avalancheuses sont repris du PDF officiel, sans redessin ni correspondance de code supposée. Les pages complètes du PDF sont aussi conservées comme images locales. Le nom du massif et la date de rédaction du PDF doivent correspondre au XML ; sinon les illustrations sont écartées et signalées comme indisponibles.
 
+Le lien « PDF officiel — connexion requise » est distinct du contenu hors ligne. Il ouvre `bulletins/ID.html`, puis la copie PDF disponible en ligne. La copie KMZ ne s'actualise pas : retélécharger et réimporter avant une sortie et contrôler la date. La couche AQX continue de se charger en ligne selon sa configuration.
+
+Les images sont des références relatives `media/ID/...` présentes dans le ZIP du KMZ : elles ne dépendent d'aucun téléchargement au moment de la lecture. Leur affichage effectif après import dans AlpineQuest reste à confirmer en mode avion sur Android. Le texte reste disponible si le lecteur ne restitue pas les images.
 Le premier toucher sur une zone reste géré par AlpineQuest : l'ouverture automatique du PDF depuis ce seul toucher n'est pas garantie par KML. Il faut activer le lien dans la fiche/menu de la zone. La taille du panneau natif AlpineQuest reste gérée par l'application ; les styles HTML proposés restent à vérifier sur Android.
 
-Le KMZ Belledonne a été validé par l'utilisateur sur Android : zone sélectionnable, texte consultable et ouverture du PDF officiel. Les nouveaux bandeaux et nouvelles fiches doivent être retestés sur cet appareil.
+Le KMZ Belledonne a été validé par l'utilisateur sur Android : zone sélectionnable, texte consultable et ouverture du PDF officiel. Les nouveaux bandeaux et nouvelles fiches avec images locales doivent être retestés sur cet appareil, notamment en mode avion.
 
 ## Production automatique
 

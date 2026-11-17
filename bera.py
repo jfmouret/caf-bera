@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont
+import fitz
 ROOT=Path(__file__).resolve().parent
 PARIS=ZoneInfo('Europe/Paris')
 ARCHIVE='https://files.data.gouv.fr/meteofrance/data/BULLETIN/BRA/'
@@ -143,11 +144,84 @@ def fetch(features,now,rawdir):
         print(name+' : '+b['state'],flush=True)
     return result,errors
 
+def prepare_offline_images(b,out):
+    """Copier en images des parties du PDF officiel, sans dessiner de pictogrammes."""
+    pdf=out/'raw'/f'{b["code"]}.pdf'
+    b['offline_images']=[]
+    if not pdf.is_file():return
+    directory=out/'media'/str(b['code']);directory.mkdir(parents=True,exist_ok=True)
+    try:
+        with fitz.open(pdf) as doc:
+            if not len(doc):return
+            page=doc[0];width=page.rect.width
+            text=page.get_text().replace(chr(65279),'')
+            massif=re.search(r'MASSIF\s*:\s*([^\n]+)',text)
+            date=re.search(r'Rédigé le .*?(\d{1,2})\s+(\w+)\s+(\d{4})\s+à\s+(\d{1,2})h(?:\s*(\d{2}))?',text)
+            months=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
+            if not massif or normal_name(massif.group(1))!=normal_name(b['name']):raise ValueError('massif PDF différent')
+            if not date or date.group(2).lower() not in months:raise ValueError('date PDF non vérifiable')
+            day,month,year,hour,minute=date.groups()
+            issued=stamp(b['issued'])
+            if (issued.year,issued.month,issued.day,issued.hour,issued.minute)!=(int(year),months.index(month.lower())+1,int(day),int(hour),int(minute or 0)):raise ValueError('date PDF différente du XML')
+            def save(rect,name,caption):
+                rect=fitz.Rect(rect)&page.rect
+                if rect.is_empty:return
+                dest=directory/name
+                page.get_pixmap(matrix=fitz.Matrix(2.5,2.5),clip=rect,alpha=False).save(dest)
+                b['offline_images'].append({'path':dest.relative_to(out).as_posix(),'caption':caption})
+            # Le cartouche contient aussi des éléments vectoriels : on rend la zone,
+            # sans extraire uniquement le bitmap du symbole de danger.
+            stability=page.search_for('Stabilité du manteau neigeux')
+            if stability:
+                bottom=stability[0].y0-3
+                candidates=[r for item in page.get_images(full=True) for r in page.get_image_rects(item[0])
+                            if 80<r.y0<bottom and r.x0<width*.45]
+                if candidates:
+                    top=min(r.y0 for r in candidates)-4
+                    save((0,top,width*.48,bottom),'cartouche.png','Cartouche officiel : danger, altitudes et orientations')
+            # Associer chaque image SAT à son libellé imprimé immédiatement à droite.
+            rows=page.search_for('Situation avalancheuse typique')
+            if rows:
+                row=rows[0];zone=fitz.Rect(0,row.y0-16,width,row.y1+16)
+                icons=[]
+                for item in page.get_images(full=True):
+                    for rect in page.get_image_rects(item[0]):
+                        if rect.intersects(zone) and rect.width<80 and rect.height<80 and rect.x0>row.x1:
+                            icons.append(rect)
+                icons.sort(key=lambda r:r.x0)
+                words=page.get_text('words',clip=zone)
+                labels=[]
+                for i,rect in enumerate(icons):
+                    limit=icons[i+1].x0-3 if i+1<len(icons) else width
+                    following=[w for w in words if rect.x1<=w[0]<limit and w[1]>=row.y0-2 and w[3]<=row.y1+2]
+                    caption=' '.join(w[4] for w in sorted(following,key=lambda w:w[0])).replace(chr(65279),'').strip()
+                    right=max([w[2] for w in following]+[rect.x1])
+                    save((rect.x0-2,min(rect.y0,row.y0)-2,right+3,max(rect.y1,row.y1)+2),f'probleme-{i+1}.png',caption or 'Pictogramme officiel du bulletin')
+                    if caption:labels.append(caption)
+                b['pdf_problem_labels']=labels
+            # La page complète garde tous les pictogrammes et le contexte officiel,
+            # y compris si une nouvelle mise en page empêche les découpes ci-dessus.
+            for number,page in enumerate(doc,1):
+                save(page.rect,f'page-{number}.png',f'Page {number} du bulletin officiel, conservée en image hors ligne')
+    except Exception as e:
+        b.setdefault('notes',[]).append('Illustrations PDF indisponibles : '+type(e).__name__)
+
+def write_kmz(path,data,features,bs,out):
+    """Vérifier et embarquer chaque image référencée dans le document KML."""
+    media={img['path'] for f in features for img in bs[f['properties']['code']].get('offline_images',[])}
+    with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as z:
+        z.writestr('doc.kml',data)
+        for name in sorted(media):
+            if name.startswith('/') or '..' in Path(name).parts:raise ValueError('Chemin image invalide')
+            z.write(out/name,name)
+
 def description(b):
     esc=lambda x:html.escape(str(x))
-    chunks=[f"<h2>{esc(b['name'])}</h2><p><b>{esc(b['state'])}</b></p>",f"<p>Vérifié : {esc(b['checked_at'])}</p>"]
+    chunks=['<div style="max-width:320px;font-size:20px;line-height:1.4"><font size="4">',f"<h2>{esc(b['name'])}</h2><p><b>État lors de l’enregistrement : {esc(b['state'])}</b></p>",f"<p>Copie enregistrée : {esc(b['checked_at'])}</p>",'<p><b>Lecture hors ligne.</b> Cette copie ne se met pas à jour ; contrôler sa date de validité.</p>']
     if 'risk' in b:
         chunks.append(f"<p>Rédaction : {esc(b['issued'])}<br/>Fin de validité : {esc(b['valid_until'])}</p>")
+        if b.get('online_pdf'):
+            chunks.append(f'<p><a href="{esc(b["online_pdf"])}"><font size="5"><b>PDF officiel — connexion requise</b></font></a></p>')
         a=b['risk'];old=b['display_level'] is None
         chunks.append('<p><b>'+('DONNÉES ANCIENNES, PAS LE DANGER ACTUEL. ' if old else '')+'Estimation à l’échelle du massif.</b></p>')
         for i in (1,2):
@@ -157,23 +231,20 @@ def description(b):
         orientations=[k for k in ('N','NE','E','SE','S','SW','W','NW') if b['orientations'].get(k)=='true']
         chunks.append('<p>Rose des pentes les plus dangereuses : '+esc(', '.join(orientations) or 'non renseignée')+'<br/>'+esc(b['orientations'].get('COMMENTAIRE',''))+'</p>')
         chunks.append('<p>Situations avalancheuses typiques (codes officiels ; libellés vérifiés lorsqu’ils sont disponibles) : '+esc('; '.join(k+'='+v+' ('+SAT_NAMES.get(v,'libellé non vérifié')+')' for k,v in b['sat'].items() if v))+'. Localisations et altitudes propres aux problèmes : lire le texte intégral ci-dessous.</p>')
-        for key,label in [('resume','Synthèse'),('stabilite','Problèmes avalancheux et stabilité'),('accidentel','Déclenchements provoqués'),('naturel','Départs spontanés'),('tendance','Évolution J+2')]:
+        if b.get('offline_images'):
+            chunks.append('<h3>Pictogrammes officiels embarqués</h3>')
+            for img in b['offline_images']:
+                if Path(img['path']).name.startswith('page-'):continue
+                chunks.append(f'<p>{esc(img["caption"])}</p><p><img src="{esc(img["path"])}" width="300" alt="{esc(img["caption"])}"/></p>')
+        for key,label in [('resume','Synthèse'),('stabilite','Problèmes avalancheux et stabilité'),('accidentel','Déclenchements provoqués'),('naturel','Départs spontanés'),('tendance','Évolution J+2'),('qualite','Qualité de la neige')]:
             chunks.append('<h3>'+label+'</h3><p>'+esc(b['texts'][key] or 'Non renseigné').replace('\n','<br/>')+'</p>')
         chunks.append('<p>J+2 : '+esc(a.get('DATE_RISQUE_J2',''))+' ; niveau '+esc(a.get('RISQUEMAXIJ2','non renseigné'))+'</p>')
-        chunks.append(f'<p><a href="{esc(b["source"])}">XML officiel complet</a></p>')
-        if b.get('public_xml'):chunks.append(f'<p><a href="{esc(b["public_xml"])}">Copie du XML téléchargé</a></p>')
-        if b.get('pdf_local') and b.get('public_pdf'):chunks.append(f'<p><a href="{esc(b["public_pdf"])}">PDF officiel téléchargé, copie complète</a></p>')
-        if b.get('pdf'):chunks.append(f'<p><a href="{esc(b["pdf"])}">PDF officiel complet</a></p>')
+        for img in b.get('offline_images',[]):
+            if Path(img['path']).name.startswith('page-'):
+                chunks.append(f'<h3>{esc(img["caption"])}</h3><p><img src="{esc(img["path"])}" width="300" alt="Page officielle du bulletin"/></p>')
     chunks.append('<p><a href="https://meteofrance.com/meteo-montagne">Bulletins officiels Météo-France</a></p><p>Source : Météo-France — Licence Ouverte 2.0. Transformation CAF. Un niveau de massif ne décrit pas le risque local sur une pente. Vérifier les dates avant toute utilisation ; une copie hors ligne ne se met pas à jour.</p>')
     chunks.append('<p>'+esc('; '.join(b.get('notes',[])))+'</p>')
-    return ''.join(chunks)
-
-def contour_description(base,code):
-    url=html.escape(base.rstrip('/')+f'/bulletins/{code}.html')
-    # HTML simple pour les lecteurs KML Android ; aucune redirection dans le KML.
-    return ('<div style="max-width:280px;font-size:20px;line-height:1.35">'
-            f'<p><a href="{url}"><font size="5"><b>OUVRIR LE BERA PDF</b></font></a></p>'
-            '<p><font size="3">Bulletin Météo-France actualisé.<br/>Connexion Internet nécessaire.</font></p></div>')
+    return ''.join(chunks)+'</font></div>'
 
 def pdf_page(b,pdf_url=None):
     """Adresse stable : ouverture du PDF à jour, ou indisponibilité explicite."""
@@ -237,7 +308,7 @@ def kml(features,bulletins,title,contours_base=None):
     for f in features:
         p=f['properties'];b=bulletins[p['code']];level=None if contours_base else b['display_level'];rgb=COLORS[level]
         color='55'+rgb[4:6]+rgb[2:4]+rgb[0:2]
-        info=description(b) if contours_base is None else contour_description(contours_base,p['code'])
+        info=description(b)
         pm=sub(doc,'Placemark');sub(pm,'name',p['title'] if contours_base else p['title']+' — '+(str(level)+'/5' if level else 'INDISPONIBLE')+' — '+title)
         sub(pm,'description',info);style=sub(pm,'Style');label=sub(style,'LabelStyle');sub(label,'scale',1.3);line=sub(style,'LineStyle');sub(line,'color',color);sub(line,'width',3)
         poly=sub(style,'PolyStyle');sub(poly,'color',color);sub(poly,'fill',0 if contours_base else 1);sub(poly,'outline',1)
@@ -251,7 +322,7 @@ def kml(features,bulletins,title,contours_base=None):
                 boundary=sub(pg,'outerBoundaryIs' if i==0 else 'innerBoundaryIs');lr=sub(boundary,'LinearRing')
                 sub(lr,'coordinates',' '.join(f'{x},{y},0' for x,y,*_ in ring))
         # Repère central distinct, utile si la sélection d'une zone est peu commode.
-        wp=sub(doc,'Placemark');sub(wp,'name',p['title']+' · BERA PDF' if contours_base else p['title']+' — fiche BERA');sub(wp,'description',info);pt=sub(wp,'Point');sub(pt,'coordinates',f'{p["lon_center"]},{p["lat_center"]},0')
+        wp=sub(doc,'Placemark');sub(wp,'name',p['title']+' · BERA hors ligne' if contours_base else p['title']+' — fiche BERA');sub(wp,'description',info);pt=sub(wp,'Point');sub(pt,'coordinates',f'{p["lon_center"]},{p["lat_center"]},0')
     return ET.tostring(root,encoding='utf-8',xml_declaration=True)
 
 def project(lon,lat,z):
@@ -306,14 +377,16 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
     for code,b in bs.items():
         if (out/'raw'/f'{code}.xml').exists():b['public_xml']=base.rstrip('/')+f'/raw/{code}.xml'
         if (out/'raw'/f'{code}.pdf').exists():b['public_pdf']=base.rstrip('/')+f'/raw/{code}.pdf'
+        b['online_pdf']=base.rstrip('/')+f'/bulletins/{code}.html'
+        prepare_offline_images(b,out)
     for filename,fs in [('bera-alpes',features),('bera-belledonne',[f for f in features if f['properties']['code']==8])]:
         if not fs:continue
         data=kml(fs,bs,title+' '+now.strftime('%Y-%m-%d %H:%M %Z'));(out/(filename+'.kml')).write_bytes(data)
-        with zipfile.ZipFile(out/(filename+'.kmz'),'w',zipfile.ZIP_DEFLATED) as z:z.writestr('doc.kml',data)
+        write_kmz(out/(filename+'.kmz'),data,fs,bs,out)
     (out/'bulletins.json').write_text(json.dumps({'generated_at':now.isoformat(),'errors':list(errors),'bulletins':list(bs.values())},ensure_ascii=False,indent=2))
     data=kml(features,bs,'Contours BERA — fiches en ligne',base)
     (out/'bera-contours.kml').write_bytes(data)
-    with zipfile.ZipFile(out/'bera-contours.kmz','w',zipfile.ZIP_DEFLATED) as z:z.writestr('doc.kml',data)
+    write_kmz(out/'bera-contours.kmz',data,features,bs,out)
     (out/'bulletins').mkdir(exist_ok=True)
     for code,b in bs.items():
         pdf_url=(b.get('public_pdf') if (out/'raw'/f'{code}.pdf').exists() else b.get('pdf'))

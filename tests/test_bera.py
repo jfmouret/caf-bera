@@ -42,10 +42,23 @@ class BeraTests(unittest.TestCase):
     def test_aqx_is_raster_layer(self):
         r=ET.fromstring(bera.aqx('https://host.test/bera','BERA'))
         self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles/{$z}',r.find('.//server').text)
-    def test_contours_open_pdf_route_without_overview(self):
-        info=bera.contour_description('https://host.test/bera',8)
-        self.assertIn('https://host.test/bera/bulletins/8.html',info)
-        self.assertNotIn('index.html',info)
+    def test_contours_keep_offline_text_and_online_pdf(self):
+        b=self.b.copy();b.update(checked_at='test',state='ARCHIVE',display_level=None,online_pdf='https://host.test/bulletins/8.html',notes=[])
+        root=ET.fromstring(bera.kml(self.features,{8:b},'test','https://host.test'))
+        info=root.find('.//{'+bera.K+'}description').text
+        self.assertIn('Lecture hors ligne',info)
+        self.assertIn(b['valid_until'],info)
+        self.assertIn('stabilité',info)
+        self.assertIn('https://host.test/bulletins/8.html',info)
+    def test_kmz_packages_local_images(self):
+        with tempfile.TemporaryDirectory() as folder:
+            out=Path(folder);(out/'media/8').mkdir(parents=True)
+            Image.new('RGB',(10,10)).save(out/'media/8/picto.png')
+            b=self.b.copy();b['offline_images']=[{'path':'media/8/picto.png','caption':'image de test'}]
+            bera.write_kmz(out/'test.kmz',b'<kml/>',self.features,{8:b},out)
+            with zipfile.ZipFile(out/'test.kmz') as z:
+                self.assertIsNone(z.testzip())
+                self.assertIn('media/8/picto.png',z.namelist())
     def test_pdf_route_only_redirects_when_bulletin_valid(self):
         b=self.b.copy();b['display_level']=b['maximum']
         page=bera.pdf_page(b,'https://host.test/raw/8.pdf')

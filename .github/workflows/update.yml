@@ -41,6 +41,8 @@ jobs:
         env:
           MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
+      - name: Vérifier les illustrations hors ligne
+        run: python validate_offline.py
       - name: Résumé des données obtenues
         run: |
           python - <<'PY'
