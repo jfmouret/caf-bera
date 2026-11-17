@@ -436,15 +436,15 @@ def mbtiles(out):
     db.commit();db.close()
 
 def aqx(base,title,features=None):
-    url=html.escape(base.rstrip('/')+'/tiles-v3/{$z}/{$x}/{$y}.png')
+    url=html.escape(base.rstrip('/')+'/tiles-v4/{$z}/{$x}/{$y}.png')
     levels=[]
     for z in range(6,13):
         bounds=''
         if features:bounds='<tiles-bounds>'+','.join(map(str,map_bounds(features,z)))+'</tiles-bounds>'
         levels.append(f'<zoom-levels z="{z}">{bounds}<update-delay>0D</update-delay><max-threads>2</max-threads><server>{url}</server></zoom-levels>')
     return ('<?xml version="1.0" encoding="utf-8"?>'
-            '<aqx version="11"><name>CAF BERA V3</name><description>Source Météo-France — Licence Ouverte 2.0. Gris : bulletin actuel indisponible. Contrôler la validité.</description>'
-            '<source id="CAFBERA2026V3" layer="true" opacity="100"><name>BERA V3 — '+html.escape(title)+'</name>'
+            '<aqx version="11"><name>CAF BERA V4</name><description>Source Météo-France — Licence Ouverte 2.0. Gris : bulletin actuel indisponible. Contrôler la validité.</description>'
+            '<source id="CAFBERA2026V4" layer="true" opacity="100"><name>BERA V4 — '+html.escape(title)+'</name>'
             '<default-location>6.00201,45.27395</default-location>'+''.join(levels)+'</source></aqx>')
 
 def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
@@ -467,7 +467,7 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
         pdf_url=(b.get('public_pdf') if (out/'raw'/f'{code}.pdf').exists() else b.get('pdf'))
         (out/'bulletins'/f'{code}.html').write_text(pdf_page(b,pdf_url))
     n=tiles(features,bs,out,6,12)
-    shutil.copytree(out/'tiles',out/'tiles-v3',dirs_exist_ok=True)
+    shutil.copytree(out/'tiles',out/'tiles-v4',dirs_exist_ok=True)
     (out/'bera.aqx').write_text(aqx(base,title,features))
     if offline:mbtiles(out)
     if offline:shutil.copyfile(out/'bera.mbtiles',out/'bera.mbtile')

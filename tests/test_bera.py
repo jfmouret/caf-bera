@@ -41,7 +41,7 @@ class BeraTests(unittest.TestCase):
             db=sqlite3.connect(p/'bera.mbtiles');self.assertEqual(db.execute('select count(*) from tiles').fetchone()[0],n);db.close()
     def test_aqx_is_raster_layer(self):
         r=ET.fromstring(bera.aqx('https://host.test/bera','BERA'))
-        self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles-v3/{$z}',r.find('.//server').text)
+        self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles-v4/{$z}',r.find('.//server').text)
     def test_contours_keep_offline_text_and_online_pdf(self):
         b=self.b.copy();b.update(checked_at='test',state='ARCHIVE',display_level=None,online_pdf='https://host.test/bulletins/8.html',notes=[])
         root=ET.fromstring(bera.kml(self.features,{8:b},'test','https://host.test'))
