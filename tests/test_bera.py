@@ -1,0 +1,45 @@
+import datetime as dt,io,json,tempfile,unittest,zipfile
+from pathlib import Path
+from unittest.mock import patch
+import xml.etree.ElementTree as ET
+import bera
+from PIL import Image
+class BeraTests(unittest.TestCase):
+    def setUp(self):
+        self.raw=(bera.ROOT/'data/archive-2025.xml').read_bytes()
+        self.b=bera.parse_xml(self.raw,8)
+        self.features=[f for f in json.loads((bera.ROOT/'data/massifs.geojson').read_text())['features'] if f['properties']['code']==8]
+    def test_real_archive(self):
+        self.assertEqual(self.b['name'],'Belledonne');self.assertIn(self.b['maximum'],range(1,6));self.assertTrue(self.b['texts']['stabilite'])
+    def test_altitude_and_evolution(self):
+        b=bera.parse_xml((bera.ROOT/'data/belledonne-exemple.xml').read_bytes(),8)
+        self.assertEqual((b['risk']['LOC1'],b['risk']['LOC2']),('<2100','>2100'));self.assertEqual(b['risk']['EVOLURISQUE2'],'2')
+    def test_wrong_massif_rejected(self):
+        with self.assertRaises(ValueError):bera.parse_xml(self.raw,7)
+    def test_invalid_level_rejected(self):
+        with self.assertRaises(ValueError):bera.parse_xml(self.raw.replace(('RISQUE1="'+self.b['risk']['RISQUE1']+'"').encode(),b'RISQUE1="9"',1),8)
+    def test_expiry_and_future(self):
+        start=bera.stamp(self.b['issued']);end=bera.stamp(self.b['valid_until'])
+        self.assertFalse(bera.active(self.b,start-dt.timedelta(seconds=1)));self.assertTrue(bera.active(self.b,start));self.assertFalse(bera.active(self.b,end))
+    def test_xml_escape_and_geometry(self):
+        b=self.b;b.update(state='PÉRIMÉ',display_level=None,checked_at='test',source='https://example.org/a?x=1&y=2',notes=[])
+        r=ET.fromstring(bera.kml(self.features,{8:b},'test'))
+        ns={'k':bera.K};self.assertEqual(len(r.findall('.//k:Polygon',ns)),1)
+        self.assertIn('DONNÉES ANCIENNES',r.find('.//k:description',ns).text)
+        self.assertIn('55888888',ET.tostring(r).decode())
+    def test_network_failure_outputs_unavailable(self):
+        with tempfile.TemporaryDirectory() as d,patch('bera.get',side_effect=OSError('offline')),patch.dict('os.environ',{},clear=True):
+            bs,errors=bera.fetch(self.features,dt.datetime.now(bera.PARIS),Path(d))
+        self.assertIsNone(bs[8]['display_level']);self.assertEqual(bs[8]['state'],'INDISPONIBLE');self.assertTrue(errors)
+    def test_transparent_tiles_and_tms(self):
+        b=self.b;b.update(state='ARCHIVE',display_level=b['maximum'],checked_at='test',source='https://example.org',notes=[])
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);n=bera.tiles(self.features,{8:b},p,6,6);self.assertGreater(n,0)
+            im=Image.open(next((p/'tiles').glob('*/*/*.png')));self.assertEqual(im.mode,'RGBA');self.assertLess(im.getchannel('A').getextrema()[0],255)
+            bera.mbtiles(p)
+            import sqlite3
+            db=sqlite3.connect(p/'bera.mbtiles');self.assertEqual(db.execute('select count(*) from tiles').fetchone()[0],n);db.close()
+    def test_aqx_is_raster_layer(self):
+        r=ET.fromstring(bera.aqx('https://host.test/bera','BERA'))
+        self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles/{$z}',r.find('.//server').text)
+if __name__=='__main__':unittest.main()

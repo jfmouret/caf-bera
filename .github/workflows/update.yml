@@ -1,0 +1,66 @@
+name: BERA quotidien
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.py'
+      - 'requirements.txt'
+      - 'data/**'
+      - '.github/workflows/update.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '25 5,11,17,21 * * *'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: bera-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - name: Vérifier la présence de la clé
+        env:
+          MF_API_KEY: ${{ secrets.MF_API_KEY }}
+        run: |
+          if [ -z "$MF_API_KEY" ]; then
+            echo '::error::Le secret de dépôt MF_API_KEY est absent ou vide.'
+            exit 1
+          fi
+      - name: Générer les données actuelles
+        env:
+          MF_API_KEY: ${{ secrets.MF_API_KEY }}
+        run: python bera.py --all-alps --mbtiles --base-url https://jfmouret.github.io/caf-bera
+      - name: Résumé des données obtenues
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('dist/bulletins.json').read_text())
+          bs=data['bulletins']
+          api=sum(b.get('source','').startswith('https://public-api.meteofrance.fr/') for b in bs)
+          valid=sum(b['display_level'] is not None for b in bs)
+          print(f'Bulletins provenant de l API : {api}/{len(bs)} ; bulletins valides : {valid}.')
+          if not api: print('::warning::Aucun bulletin XML API obtenu. Consulter les statuts HTTP dans bulletins.json ; les archives servent de repli.')
+          Path('dist/.nojekyll').touch()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bera-fichiers
+          path: dist
+          retention-days: 7
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - uses: actions/deploy-pages@v4

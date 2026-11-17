@@ -1,0 +1,653 @@
+                                Descriptif technique
+
+                                 des informations du
+
+                           BULLETIN AVALANCHE
+
+
+
+
+Les Produits
+Il existe 36 Bulletins d’estimation du Risque Avalanche :
+      1 bulletin avalanche par massif montagneux pour les massifs des Alpes, de Corse et des
+         Pyrénées, dont l’Andorre.
+      La liste des noms des massifs et identifiants est fournie en annexe de ce document.
+
+Les Bulletins de Risque Avalanche sont diffusés de début novembre à fin mai quotidiennement, vers
+16h00.
+
+Accès et exploitation des données publiques temps réel du bulletin avalanche :
+    L'accès aux données publiques du bulletin avalanche se fait en téléchargement direct au
+      travers d'une API DonneesPubliquesBRA avec authentification depuis le portail des API de
+      Météo-France
+    Le lot de données publiques du BRA XML est constitué de :
+          o un produit BRA au format XML : ce produit contient toutes les informations du bulletin
+              sauf les images et les pictogrammes
+          o il inclut le nom des images d'illustration du bulletin
+          o 6 fichiers d'illustration du bulletin, au format PNG
+
+Pour une exploitation optimale de l’API par les usagers, la structure et le contenu détaillé des fichiers
+par massif (xml et png) est décrit ci-dessous. Un jeu de fichiers complémentaires est également fourni
+lors de l’accès au service. Il est fortement conseillé de les utiliser pour un affichage html.
+
+
+Accès à l’archive des données publiques du bulletin avalanche :
+Ces bulletins sont également archivés sur la plateforme des données publiques data.gouv.fr. Les
+fichiers PDF et XML y sont librement accessibles depuis mars 2016.
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Structure du xml et lien avec les images
+Entête du Bulletin xml
+Extrait exemple XML Belledonne
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<?xml-stylesheet type="text/xsl" href="../web/bra.xslt"?>
+<BULLETINS_NEIGE_AVALANCHE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" TYPEBULLETIN="BRA" ID="8" MASSIF="Belledonne"
+DATEBULLETIN="2023-10-24T14:00:00" DATEECHEANCE="2023-10-25T18:00:00" DATEVALIDITE="2023-10-
+25T18:00:00" DATEDIFFUSION="2023-10-24T12:36:12" AMENDEMENT="false">
+ <DateValidite>2023-10-25T18:00:00</DateValidite>
+
+Description du contenu
+BULLETINS_NEIGE_AVALANCHE bulletin pour un
+massif
+       • TYPEBULLETIN : BRA
+       • ID : identifiant massif (voir liste en annexe)
+       • MASSIF : nom du massif                            Visuel entête du bulletin pdf
+       • DATEBULLETIN : date heure de rédaction
+            du bulletin (cas général J vers 16h)
+       • DATEECHEANCE : date heure d'échéance
+            du bulletin (cas général J+1 18h)
+       • DATEVALIDITE : date heure de validité du
+            bulletin (cas général J+1 18h)
+       • DATEDIFFUSION : date heure de diffusion
+       • AMENDEMENT : true/false - amendement
+            oui/non
+<DateValidite>2023-10-25T18:00:00</DateValidite>:
+date heure de validité du bulletin (cas général J+1 18h)
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Cartouche synthétique
+Extrait exemple XML Belledonne
+ <CARTOUCHERISQUE>
+  <RISQUE RISQUE1="2" EVOLURISQUE1="" LOC1="&lt;2100" ALTITUDE="2100" RISQUE2="3"
+EVOLURISQUE2="2" LOC2="&gt;2100" RISQUEMAXI="3" COMMENTAIRE="Au-dessus de 2100m risque
+marqué évoluant en risque limité, plus bas risque limité." RISQUEMAXIJ2="2" DATE_RISQUE_J2="2023-10-
+28T00:00:00"/>
+  <PENTE NE="true" E="false" SE="false" S="true" SW="false" W="false" NW="true" N="false"
+COMMENTAIRE="Test affichage"/>
+  <ACCIDENTEL>et synthèse des risques de déclenchement skieur</ACCIDENTEL>
+  <NATUREL>TEST Diffusion bulletin- texte de synthèse des risques de départs spontanés</NATUREL>
+  <RESUME>Départs spontanés : TEST Diffusion bulletin- texte de synthèse des risques de départs spontanés
+Déclenchements skieurs : et synthèse des risques de déclenchement skieur</RESUME>
+  <RisqueJ2>risque limité</RisqueJ2>
+  <CommentaireRisqueJ2>Test diffusion et affichage Appli
+Tendance des risques à J+2, facteur principal de l'évolution</CommentaireRisqueJ2>
+  <AVIS/>
+  <VIGILANCE/>
+  <ImageRisque>montagne_risques_8.png</ImageRisque>
+  <ImagePente>rose_pentes_8.png</ImagePente>
+ </CARTOUCHERISQUE>
+
+Description du contenu
+CARTOUCHERISQUE : contenu de la partie                            ACCIDENTEL et NATUREL.
+supérieure du bulletin                                         RisqueJ2 : libellé du risque max pour J+2
+    RISQUE : l’estimation chiffrée des risques                CommentaireRisqueJ2 : texte de synthèse
+        d’avalanche                                               pour la tendance des risques d’avalanche à
+            o RISQUE1 : toujours renseigné, valeur                J+2
+                de 1 à 5. (valeur de la tranche basse          AVIS : vide , « fort risque d’avalanche » ou
+                si localisation                                   « très fort risque d’avalanche »
+            o EVOLURISQUE1 : vide ou évolution                 VIGILANCE : vide
+                temporelle du risque1                          ImageRisque : nom du fichier image
+            o LOC1 : vide, « < « Altitude » », « E »              montagne_risques_ID.png
+                ou « S » en cas de distinction d’altitude      ImagePente : nom du fichier image
+                ou géographique                                   rose_pentes_ID.png
+            o ALTITUDE : vide ou altitude limite en
+                cas de distinction d’altitude                 visuel de la rubrique estimation des risques
+            o RISQUE2 : vide ou valeur de 1 à 5 en
+                cas de distinction d’altitude ou
+                géographique
+            o EVOLURISQUE2 : vide ou évolution
+                temporelle du risque2
+            o LOC1 : vide, « > « Altitude » », « O »
+                ou « N » en cas de distinction d’altitude
+                ou géographique                           Pictos Risques d’avalanche fournis dans la
+            o COMMENTAIRE : formulation textuelle documentation
+                des indices de risque.
+    PENTE : rose de localisation des pentes les
+        plus dangereuses
+            o NE, E, SE, S, SW, W, NW, N : true
+                (orientations en noir dans l’image) ou
+                false (en gris)
+            o COMMENTAIRE : texte sous la rose
+                des pentes
+    RESUME : Texte de synthèse pour les risques
+        de départs spontanés et de déclenchements                  Images montagne_risques_8.png et
+        skieurs à J+1. Remplace à terme les 2 balises                        rose_pentes_8.png
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Rubrique Stabilité du manteau neigeux
+Extrait exemple XML Belledonne
+<STABILITE>
+  <SitAvalTyp SAT1="1" SAT2=""/>
+  <TEXTE>Bloc de texte stabilité - Titre de la situation nivologique
+
+DEPARTS SPONTANES : Bloc de texte paragraphe 1
+
+DECLENCHEMENTS PROVOQUES : Bloc de texte paragraphe 2</TEXTE>
+ </STABILITE>
+
+Description du contenu
+STABILITE : bloc Stabilité du manteau neigeux
+   • SitAvalTyp
+       ◦ SAT1 : valeur de 1 à 6, situation
+           avalancheuse typique1 toujours présent
+       ◦ SAT2 : vide ou valeur de 1 à 6. (fichier de
+           correspondance pour les pictos)                           Visuel de la rubrique Stabilité
+   • TEXTE : texte de la stabilité                        Pictos SAT (Situation avalancheuse typique) : fichiers
+                                                          images fournis dans la documentation associée
+
+ Rubrique Enneigement
+Extrait exemple XML Belledonne
+<QUALITE>
+  <TEXTE>TEST Diffusion bulletin</TEXTE>
+ </QUALITE>
+ <ENNEIGEMENT DATE="2023-10-24T00:00:00" LimiteSud="1600" LimiteNord="1200">
+  <NIVEAU ALTI="1500" N="10" S="0"/>
+  <NIVEAU ALTI="2000" N="40" S="20"/>
+  <NIVEAU ALTI="2500" N="120" S="40"/>
+  <ImageEnneigement>montagne_enneigement_8.png</ImageEnneigement>
+ </ENNEIGEMENT>
+
+Description du contenu
+QUALITE : bloc descriptif de la qualité de la neige
+    TEXTE : texte de la qualité de la neige
+
+ENNEIGEMENT : bloc Epaisseur de neige hors piste
+    DATE : date de l'enneigement
+    LimiteSud : altitude enneigement continu
+      versant sud (m)
+    Limite Nord : altitude enneigement continu
+      versant Nord (m)
+    NIVEAU : valeurs d’enneigement pour une
+      altitude (3 éléments)
+           o ALTI : altitude du niveau (m)                       Images montagne_enneigement_8.png
+           o N : épaisseur versant Nord (cm)
+           o S : épaisseur versant Sud (cm)
+    ImageEnneigement : nom du fichier image
+      montagne_enneigement_ID.png
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Rubrique Neige fraîche
+Extrait exemple XML Belledonne
+<NEIGEFRAICHE ALTITUDESS="1800">
+  <NEIGE24H DATE="2023-10-22T00:00:00" SS24Min="0" SS24Max="5"/>
+  <NEIGE24H DATE="2023-10-23T00:00:00" SS24Min="0" SS24Max="0"/>
+  <NEIGE24H DATE="2023-10-24T00:00:00" SS24Min="20" SS24Max="30"/>
+  <NEIGE24H DATE="2023-10-25T00:00:00" SS24Min="0" SS24Max="5"/>
+  <NEIGE24H DATE="2023-10-26T00:00:00" SS24Min="0" SS24Max="0"/>
+  <NEIGE24H DATE="2023-10-27T00:00:00" SS24Min="5" SS24Max="10"/>
+  <ImageNeigeFraiche>graphe_neige_fraiche_8.png</ImageNeigeFraiche>
+ </NEIGEFRAICHE>
+
+Description du contenu
+NEIGEFRAICHE: bloc Neige fraîche, mise en forme
+complète dans l’image
+    ALTITUDESS : altitude mesure neige fraîche
+       (m)
+    NEIGE24H: une échéance neige entre 06utc
+       et 06utc le lendemain (6 éléments - 4
+       analyses + 2 prévision)
+           o DATE : date de l’analyse (ou de la
+                prévision)
+           o SS24Min et SS24Max : fourchette des
+                épaisseurs de neige tombée en 24h,
+                valeurs min et max (cm)
+    ImageNeigeFraiche : nom du fichier image
+       graphe_neige_fraiche_ID.png
+                                                          Images graphe_neige_fraiche_8.png
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Rubrique aperçu météo
+Extrait exemple XML Belledonne
+<METEO ALTITUDEVENT1="2000" ALTITUDEVENT2="3000">
+   <COMMENTAIRE>Précision sur les conditions météo en complément du tableau, peut s'afficher sur 2
+lignes.</COMMENTAIRE>
+   <ECHEANCE DATE="2023-10-27T06:00:00" FF1="5" DD1="SO" FF2="20" DD2="S" ISO0="2700"
+PLUIENEIGE="2400" TEMPSSENSIBLE="71" MERNUAGES="-1"/>
+   <ECHEANCE DATE="2023-10-27T12:00:00" FF1="15" DD1="SO" FF2="30" DD2="SO" ISO0="3000"
+PLUIENEIGE="2600" TEMPSSENSIBLE="3" MERNUAGES="-1"/>
+   <ECHEANCE DATE="2023-10-27T18:00:00" FF1="5" DD1="Vrb" FF2="20" DD2="SO" ISO0="2800"
+PLUIENEIGE="2400" TEMPSSENSIBLE="51" MERNUAGES="-1"/>
+   <ECHEANCE DATE="2023-10-28T00:00:00" FF1="0" DD1="Vrb" FF2="10" DD2="O" ISO0="1900"
+PLUIENEIGE="1500" TEMPSSENSIBLE="61" MERNUAGES="-1"/>
+   <ImageMeteo>apercu_meteo_8.png</ImageMeteo>
+  </METEO>
+
+Description du contenu
+METEO : bloc Aperçu météo, mise en forme complète dans l’image
+
+
+
+
+            ALTITUDEVENT1 : altitude du vent bas (m)
+            ALTITUDEVENT2 : altitude du vent haut (m)
+            COMMENTAIRE : bloc de texte
+            ECHEANCE : une échéance (4 éléments – soirée, nuit, matin, après-midi, soir)
+                o DATE : date de la prévision
+                o TEMPSSENSIBLE : temps sensible – voir palette dans table ci-dessous (7 pour mer de
+                   nuages)
+                o MERNUAGES : altitude de la mer de nuages ou -1 si autre
+                o PLUIENEIGE : altitude de la limite pluie-neige (m) ou -1 si temps sec
+                o ISO0 : altitude de l’isotherme 0°C (m)
+                o DD1-DD2 : direction du vent rose de 8 en lettre – 1 altitude basse, 2 altitude haute ("_" pour une
+                   direction variable)
+                o FF1-FF2 : force du vent – 1 altitude basse, 2 altitude haute – km/h
+
+Tableau des correspondances entre le code TEMPSSENSIBLE sa description :
+                                  Code                    Description temps sensible
+                                    0                                 clair
+                                    1                            peu nuageux
+                                    2                               nuageux
+                                    3                            très nuageux
+                                    4                                couvert
+                                    5                               variable
+                                    6                                 voilé
+                                    7                            mer de nuage
+                                   30                          brume/brouillard
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+                            Code (suite)                             Description temps sensible
+                                31                                                 brume
+                                32                                               brouillard
+                                33                                          brouillard dense
+                                38                                          brouillard givrant
+                                39                                      brouillard givrant dense
+                                40                                                 bruine
+                                49                                        bruine verglaçante
+                                50                                                  pluie
+                                51                                              pluie faible
+                                52                                           pluie modérée
+                                53                                              pluie forte
+                                58                                       pluie et neige mêlées
+                                59                                          pluie verglaçante
+                                60                                                 neige
+                                61                                             neige faible
+                                62                                           neige modérée
+                                63                                              neige forte
+                                70                                                averses
+                                71                                            rares averses
+                                72                                  rares averses avec ciel couvert
+                                73                                     averses avec ciel couvert
+                                77                                 averses de pluie et neige mêlées
+                                78                        averses de pluie et neige mêlées avec ciel couvert
+                                80                                         averses de neige
+                                81                                      rares averses de neige
+                                82                             rares averses de neige avec ciel couvert
+                                83                                averses de neige avec ciel couvert
+                                84                                          averses de grésil
+                                85                                          averses de grêle
+                                90                                                orages
+                                91                                          orages possibles
+                                92                                        averses orageuses
+                                93                                         orages avec pluie
+                                97                                         orages avec neige
+                                98                                         orages avec grêle
+                                99                                           orages violents
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Rubrique conditions nivo des jours passés (7 derniers jours)
+Extrait exemple XML Belledonne
+ <BSH>
+  <METEO>
+   <ECHEANCE DATE="2023-10-20T06:00:00" FF1="35" DD1="SE" FF2="30" DD2="SE" ISO0="3600"
+PLUIENEIGE="3300" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-20T12:00:00" FF1="25" DD1="SO" FF2="20" DD2="O" ISO0="2800"
+PLUIENEIGE="2500" TEMPSSENSIBLE="52"/>
+[… 28 échéances, 4 par jour (06, 12, 18, 00 de J-6 à J)… ]
+   <ECHEANCE DATE="2023-10-27T00:00:00" FF1="5" DD1="O" FF2="5" DD2="O" ISO0="2900"
+PLUIENEIGE="2700" TEMPSSENSIBLE="53"/>
+  </METEO>
+  <ENNEIGEMENTS>
+   <ENNEIGEMENT DATE="2023-10-20T00:00:00" LimiteSud="1800" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="30" S="15"/>
+    <NIVEAU ALTI="2500" N="100" S="35"/>
+   </ENNEIGEMENT>
+[… …7 ENNEIGEMENT, 1 par jour (J-6 à J)… ]
+  </ENNEIGEMENTS>
+  <NEIGEFRAICHE ALTITUDESS="1800">
+   <NEIGE24H DATE="2023-10-20T00:00:00" SS24Min="10" SS24Max="20"/>
+[… …7 NEIGE24H, 1 par jour (J-6 à J)… ]
+  </NEIGEFRAICHE>
+  <RISQUES>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+[… …7 RISQUE, 1 par jour (J-6 à J)… ]
+  </RISQUES>
+  <Image7derniersjours>sept_derniers_jours_8.png</Image7derniersjours>
+  <Image7derniersjours_portrait>sept_derniers_jours_portrait_8.png</Image7derniersjours_portrait>
+ </BSH>
+
+Description du contenu
+Conditions nivo-météo des 7 derniers jours précédents.
+Pour la description des balises, voir les rubriques précédentes « Apercu meteo », « Enneigement » et « Neige
+fraîche ».
+
+Image7derniersjours : nom du fichier sept_derniers_jours_8.png
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+Annexe 1 : liste des massifs
+         Zone                    Identifiant de              Nom de massif                 Département
+                                    massif
+  Alpes du Nord                         1                       Chablais                   Haute-Savoie
+  Alpes du Nord                         2                        Aravis                    Haute-Savoie
+  Alpes du Nord                         3                      Mont-Blanc                  Haute-Savoie
+  Alpes du Nord                         4                       Bauges                        Savoie
+  Alpes du Nord                         5                      Beaufortain                    Savoie
+  Alpes du Nord                         6                   Haute-Tarentaise                  Savoie
+  Alpes du Nord                         7                      Chartreuse                      Isère
+  Alpes du Nord                         8                      Belledonne                      Isère
+  Alpes du Nord                         9                      Maurienne                      Savoie
+  Alpes du Nord                        10                       Vanoise                       Savoie
+  Alpes du Nord                        11                   Haute-Maurienne                   Savoie
+  Alpes du Nord                        12                  Grandes-Rousses                     Isère
+  Alpes du Sud                         13                        Thabor                    Hautes-Alpes
+  Alpes du Nord                        14                       Vercors                        Isère
+  Alpes du Nord                        15                        Oisans                        3sère
+  Alpes du Sud                         16                       Pelvoux                    Hautes-Alpes
+  Alpes du Sud                         17                       Queyras                    Hautes-Alpes
+  Alpes du Sud                         18                       Devoluy                    Hautes-Alpes
+  Alpes du Sud                         19                      Champsaur                   Hautes-Alpes
+  Alpes du Sud                         20                 Embrunnais Parpaillon            Hautes-Alpes
+  Alpes du Sud                         21                        Ubaye               Alpes de Haute-Provence
+  Alpes du Sud                         22                 Haut-Var Haut-Verdon    Alpes de Haute-Provence / Alpes
+                                                                                             Maritimes
+   Alpes du Sud                            23                  Mercantour                 Alpes Maritimes
+      Corse                                40                Cinto Rotondo           Haute-Corse Corse du Sud
+      Corse                                41               Renoso Incudine          Haute-Corse Corse du Sud
+     Pyrénées                              64                 Pays-Basque               Pyrénées Atlantiques
+     Pyrénées                              65                 Aspe Ossau                Pyrénées Atlantiques
+     Pyrénées                              66                Haute-Bigorre               Hautes-Pyrénées
+     Pyrénées                              67                 Aure Louron                Hautes-Pyrénées
+     Pyrénées                              68                  Luchonnais                 Haute-Garonne
+     Pyrénées                              69                  Couserans              Haute-Garonne / Ariège
+     Pyrénées                              70                 Haute-Ariege                    Ariège
+     Pyrénées                              71                   Andorre                       Andorre
+     Pyrénées                              72              Orlu St-Barthelemy                 Ariège
+     Pyrénées                              73              Capcir Puymorens             Pyrénées Orientales
+     Pyrénées                              74              Cerdagne Canigou             Pyrénées Orientales
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+EXEMPLE de bulletin avalanche, format XML
+Exemple pour le massif de Belledonne (1 massif) :
+
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<?xml-stylesheet type="text/xsl" href="../web/bra.xslt"?>
+<BULLETINS_NEIGE_AVALANCHE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" TYPEBULLETIN="BRA" ID="8" MASSIF="Belledonne"
+DATEBULLETIN="2023-10-26T10:00:00" DATEECHEANCE="2023-10-27T18:00:00" DATEVALIDITE="2023-10-
+27T18:00:00" DATEDIFFUSION="2023-10-26T09:24:35" AMENDEMENT="false">
+ <DateValidite>2023-10-27T18:00:00</DateValidite>
+ <CARTOUCHERISQUE>
+  <RISQUE RISQUE1="2" EVOLURISQUE1="" LOC1="&lt;2100" ALTITUDE="2100" RISQUE2="3"
+EVOLURISQUE2="2" LOC2="&gt;2100" RISQUEMAXI="3" COMMENTAIRE="Au-dessus de 2100m risque
+marqué évoluant en risque limité, plus bas risque limité." RISQUEMAXIJ2="2" DATE_RISQUE_J2="2023-10-
+28T00:00:00"/>
+  <PENTE NE="true" E="false" SE="false" S="true" SW="false" W="false" NW="true" N="false"
+COMMENTAIRE="Test affichage"/>
+  <ACCIDENTEL>et synthèse des risques de déclenchement skieur</ACCIDENTEL>
+  <NATUREL>TEST Diffusion bulletin- texte de synthèse des risques de départs spontanés</NATUREL>
+  <RESUME>Départs spontanés : TEST Diffusion bulletin- texte de synthèse des risques de départs spontanés
+Déclenchements skieurs : et synthèse des risques de déclenchement skieur</RESUME>
+  <RisqueJ2>risque limité</RisqueJ2>
+  <CommentaireRisqueJ2>Test diffusion et affichage Appli
+Tendance des risques à J+2, facteur principal de l'évolution</CommentaireRisqueJ2>
+  <AVIS/>
+  <VIGILANCE/>
+  <ImageRisque>montagne_risques_8.png</ImageRisque>
+  <ImagePente>rose_pentes_8.png</ImagePente>
+ </CARTOUCHERISQUE>
+ <STABILITE>
+  <SitAvalTyp SAT1="1" SAT2=""/>
+  <TEXTE>Bloc de texte stabilité - Titre de la situation nivologique
+
+DEPARTS SPONTANES : Bloc de texte paragraphe 1
+
+DECLENCHEMENTS PROVOQUES : Bloc de texte paragraphe 2</TEXTE>
+  </STABILITE>
+  <QUALITE>
+   <TEXTE>Bloc de texte qualité de la neige. Limite d'enneigement skiable, qualification de l'enneigement, état
+de la neige de surface.</TEXTE>
+  </QUALITE>
+  <ENNEIGEMENT DATE="2023-10-26T00:00:00" LimiteSud="1800" LimiteNord="1600">
+   <NIVEAU ALTI="1500" N="0" S="0"/>
+   <NIVEAU ALTI="2000" N="20" S="10"/>
+   <NIVEAU ALTI="2500" N="40" S="15"/>
+   <ImageEnneigement>montagne_enneigement_8.png</ImageEnneigement>
+  </ENNEIGEMENT>
+  <NEIGEFRAICHE ALTITUDESS="1800">
+   <NEIGE24H DATE="2023-10-22T00:00:00" SS24Min="0" SS24Max="5"/>
+   <NEIGE24H DATE="2023-10-23T00:00:00" SS24Min="0" SS24Max="0"/>
+   <NEIGE24H DATE="2023-10-24T00:00:00" SS24Min="20" SS24Max="30"/>
+   <NEIGE24H DATE="2023-10-25T00:00:00" SS24Min="0" SS24Max="5"/>
+   <NEIGE24H DATE="2023-10-26T00:00:00" SS24Min="0" SS24Max="0"/>
+   <NEIGE24H DATE="2023-10-27T00:00:00" SS24Min="5" SS24Max="10"/>
+   <ImageNeigeFraiche>graphe_neige_fraiche_8.png</ImageNeigeFraiche>
+  </NEIGEFRAICHE>
+  <METEO ALTITUDEVENT1="2000" ALTITUDEVENT2="3000">
+   <COMMENTAIRE>Précision sur les conditions météo en complément du tableau, peut s'afficher sur 2
+lignes.</COMMENTAIRE>
+   <ECHEANCE DATE="2023-10-27T06:00:00" FF1="5" DD1="SO" FF2="20" DD2="S" ISO0="2700"
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+PLUIENEIGE="2400" TEMPSSENSIBLE="71" MERNUAGES="-1"/>
+  <ECHEANCE DATE="2023-10-27T12:00:00" FF1="15" DD1="SO" FF2="30" DD2="SO" ISO0="3000"
+PLUIENEIGE="2600" TEMPSSENSIBLE="3" MERNUAGES="-1"/>
+  <ECHEANCE DATE="2023-10-27T18:00:00" FF1="5" DD1="Vrb" FF2="20" DD2="SO" ISO0="2800"
+PLUIENEIGE="2400" TEMPSSENSIBLE="51" MERNUAGES="-1"/>
+  <ECHEANCE DATE="2023-10-28T00:00:00" FF1="0" DD1="Vrb" FF2="10" DD2="O" ISO0="1900"
+PLUIENEIGE="1500" TEMPSSENSIBLE="61" MERNUAGES="-1"/>
+  <ImageMeteo>apercu_meteo_8.png</ImageMeteo>
+ </METEO>
+ <BSH>
+  <METEO>
+   <ECHEANCE DATE="2023-10-20T06:00:00" FF1="35" DD1="SE" FF2="30" DD2="SE" ISO0="3600"
+PLUIENEIGE="3300" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-20T12:00:00" FF1="25" DD1="SO" FF2="20" DD2="O" ISO0="2800"
+PLUIENEIGE="2500" TEMPSSENSIBLE="52"/>
+   <ECHEANCE DATE="2023-10-20T18:00:00" FF1="35" DD1="S" FF2="35" DD2="SO" ISO0="2800"
+PLUIENEIGE="2500" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-21T00:00:00" FF1="30" DD1="SO" FF2="30" DD2="SO" ISO0="2700"
+PLUIENEIGE="2400" TEMPSSENSIBLE="70"/>
+   <ECHEANCE DATE="2023-10-21T06:00:00" FF1="20" DD1="SO" FF2="20" DD2="SO" ISO0="2700"
+PLUIENEIGE="2500" TEMPSSENSIBLE="70"/>
+   <ECHEANCE DATE="2023-10-21T12:00:00" FF1="5" DD1="SO" FF2="5" DD2="SO" ISO0="2400"
+PLUIENEIGE="2100" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-21T18:00:00" FF1="5" DD1="O" FF2="5" DD2="O" ISO0="2400"
+PLUIENEIGE="2100" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-22T00:00:00" FF1="5" DD1="S" FF2="5" DD2="SO" ISO0="2300"
+PLUIENEIGE="-1" TEMPSSENSIBLE="2"/>
+   <ECHEANCE DATE="2023-10-22T06:00:00" FF1="10" DD1="SO" FF2="10" DD2="O" ISO0="2300"
+PLUIENEIGE="2000" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-22T12:00:00" FF1="10" DD1="SO" FF2="5" DD2="S" ISO0="2500"
+PLUIENEIGE="-1" TEMPSSENSIBLE="2"/>
+   <ECHEANCE DATE="2023-10-22T18:00:00" FF1="5" DD1="SO" FF2="5" DD2="S" ISO0="2700"
+PLUIENEIGE="-1" TEMPSSENSIBLE="3"/>
+   <ECHEANCE DATE="2023-10-23T00:00:00" FF1="10" DD1="E" FF2="15" DD2="SE" ISO0="2900"
+PLUIENEIGE="-1" TEMPSSENSIBLE="1"/>
+   <ECHEANCE DATE="2023-10-23T06:00:00" FF1="15" DD1="SE" FF2="20" DD2="SE" ISO0="3000"
+PLUIENEIGE="2700" TEMPSSENSIBLE="51"/>
+   <ECHEANCE DATE="2023-10-23T12:00:00" FF1="40" DD1="S" FF2="35" DD2="S" ISO0="3500"
+PLUIENEIGE="3200" TEMPSSENSIBLE="51"/>
+   <ECHEANCE DATE="2023-10-23T18:00:00" FF1="35" DD1="S" FF2="30" DD2="SE" ISO0="3500"
+PLUIENEIGE="-1" TEMPSSENSIBLE="2"/>
+   <ECHEANCE DATE="2023-10-24T00:00:00" FF1="30" DD1="S" FF2="20" DD2="S" ISO0="2700"
+PLUIENEIGE="2400" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-24T06:00:00" FF1="20" DD1="S" FF2="15" DD2="S" ISO0="2400"
+PLUIENEIGE="2000" TEMPSSENSIBLE="51"/>
+   <ECHEANCE DATE="2023-10-24T12:00:00" FF1="5" DD1="S" FF2="5" DD2="S" ISO0="1700"
+PLUIENEIGE="1400" TEMPSSENSIBLE="63"/>
+   <ECHEANCE DATE="2023-10-24T18:00:00" FF1="5" DD1="SE" FF2="5" DD2="SE" ISO0="1800"
+PLUIENEIGE="1500" TEMPSSENSIBLE="63"/>
+   <ECHEANCE DATE="2023-10-25T00:00:00" FF1="5" DD1="S" FF2="5" DD2="S" ISO0="2000"
+PLUIENEIGE="-1" TEMPSSENSIBLE="2"/>
+   <ECHEANCE DATE="2023-10-25T06:00:00" FF1="5" DD1="S" FF2="5" DD2="S" ISO0="2500"
+PLUIENEIGE="-1" TEMPSSENSIBLE="3"/>
+   <ECHEANCE DATE="2023-10-25T12:00:00" FF1="10" DD1="SO" FF2="10" DD2="SO" ISO0="2700"
+PLUIENEIGE="2400" TEMPSSENSIBLE="51"/>
+   <ECHEANCE DATE="2023-10-25T18:00:00" FF1="10" DD1="SO" FF2="10" DD2="SO" ISO0="1900"
+PLUIENEIGE="1600" TEMPSSENSIBLE="61"/>
+   <ECHEANCE DATE="2023-10-26T00:00:00" FF1="10" DD1="SO" FF2="10" DD2="SO" ISO0="1900"
+PLUIENEIGE="1600" TEMPSSENSIBLE="63"/>
+   <ECHEANCE DATE="2023-10-26T06:00:00" FF1="5" DD1="SO" FF2="5" DD2="SO" ISO0="2700"
+PLUIENEIGE="2400" TEMPSSENSIBLE="71"/>
+   <ECHEANCE DATE="2023-10-26T12:00:00" FF1="5" DD1="SO" FF2="5" DD2="SO" ISO0="3000"
+PLUIENEIGE="2600" TEMPSSENSIBLE="51"/>
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+   <ECHEANCE DATE="2023-10-26T18:00:00" FF1="5" DD1="SO" FF2="5" DD2="SO" ISO0="3100"
+PLUIENEIGE="3000" TEMPSSENSIBLE="51"/>
+   <ECHEANCE DATE="2023-10-27T00:00:00" FF1="5" DD1="O" FF2="5" DD2="O" ISO0="2900"
+PLUIENEIGE="2700" TEMPSSENSIBLE="53"/>
+  </METEO>
+  <ENNEIGEMENTS>
+   <ENNEIGEMENT DATE="2023-10-20T00:00:00" LimiteSud="1800" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="30" S="15"/>
+    <NIVEAU ALTI="2500" N="100" S="35"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-21T00:00:00" LimiteSud="1800" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="30" S="15"/>
+    <NIVEAU ALTI="2500" N="100" S="35"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-22T06:00:00" LimiteSud="1800" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="30" S="15"/>
+    <NIVEAU ALTI="2500" N="100" S="35"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-23T00:00:00" LimiteSud="1600" LimiteNord="1200">
+    <NIVEAU ALTI="1500" N="10" S="0"/>
+    <NIVEAU ALTI="2000" N="40" S="20"/>
+    <NIVEAU ALTI="2500" N="120" S="40"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-24T00:00:00" LimiteSud="2700" LimiteNord="2500">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="0" S="0"/>
+    <NIVEAU ALTI="2500" N="10" S="0"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-25T00:00:00" LimiteSud="1600" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="25" S="20"/>
+    <NIVEAU ALTI="2500" N="40" S="20"/>
+   </ENNEIGEMENT>
+   <ENNEIGEMENT DATE="2023-10-26T00:00:00" LimiteSud="1800" LimiteNord="1600">
+    <NIVEAU ALTI="1500" N="0" S="0"/>
+    <NIVEAU ALTI="2000" N="20" S="10"/>
+    <NIVEAU ALTI="2500" N="40" S="15"/>
+   </ENNEIGEMENT>
+  </ENNEIGEMENTS>
+  <NEIGEFRAICHE ALTITUDESS="1800">
+   <NEIGE24H DATE="2023-10-20T00:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-21T00:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-22T06:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-23T00:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-24T00:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-25T00:00:00" SS24Min="10" SS24Max="20"/>
+   <NEIGE24H DATE="2023-10-26T00:00:00" SS24Min="10" SS24Max="20"/>
+  </NEIGEFRAICHE>
+  <RISQUES>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+   <RISQUE DATE="2023-10-20T00:00:00" RISQUEMAXI="1"/>
+  </RISQUES>
+  <Image7derniersjours>sept_derniers_jours_8.png</Image7derniersjours>
+  <Image7derniersjours_portrait>sept_derniers_jours_portrait_8.png</Image7derniersjours_portrait>
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+ </BSH>
+ <TexteMeta>
+  <Vigilance>Pour consulter la vigilance en cours, veuillez vous rendre sur le site <a
+href="https://vigilance.meteofrance.fr/fr">https://vigilance.meteofrance.fr/fr</a></Vigilance>
+  <EnteteGenerique>Texte de l'entête générique</EnteteGenerique>
+  <BasDePageGenerique>Texte générique de bas de page</BasDePageGenerique>
+  <LienDocumentation>Documentation utile pour la lecture du bulletin sur <a
+href="https://vigilance.meteofrance.fr/fr">https://vigilance.meteofrance.fr/fr</a></LienDocumentation>
+  <Partenaires>Rédigé par Météo-France avec la contribution des observateurs du réseau nivo-
+météorologique. Partenariat : ANMSM (Maires de Stations de Montagne), DSF (Domaines Skiables de France),
+ADSP (Directeurs de Pistes et de la Sécurité des Stations de Sports d'Hiver) et autres acteurs de la
+montagne.</Partenaires>
+ </TexteMeta>
+</BULLETINS_NEIGE_AVALANCHE>
+
+
+
+
+Météo-France
+73, avenue de Paris - 94 165 Saint-Mandé CEDEX - France
+www.meteofrance.fr
+Météo-France, certifié ISO 9001 par AFNOR Certification
+

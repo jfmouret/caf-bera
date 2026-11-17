@@ -1,0 +1,300 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "title" : "DonneesPubliquesBRA",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http:///public/DPBRA/v1"
+  } ],
+  "security" : [ {
+    "default" : [ ]
+  } ],
+  "tags" : [ {
+    "name" : "ProduitsBulletinRisqueAvalanche",
+    "description" : "Services de téléchargement des bulletins d'estimation du risque d'avalanche les plus récents.\n"
+  } ],
+  "paths" : {
+    "/liste-massifs" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger le fichier TEXTE (GeoJSON) de la liste des massifs.",
+        "description" : "Renvoie la liste des massifs.",
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "description" : "La liste est indisponible."
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/BRA" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger le bulletin d'estimation du risque d'avalanche, en cours de validité, pour un massif.",
+        "description" : "Renvoie le bulletin d'estimation du risque d'avalanche, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        }, {
+          "name" : "format",
+          "in" : "query",
+          "description" : "XML ou PDF (XML par défaut).",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string",
+            "default" : "xml",
+            "enum" : [ "xml", "pdf" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok Le format renvoyé dépend du paramètre (XML ou PDF)"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/montagne-risques" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image de l'indice de risque du massif.",
+        "description" : "Renvoie l'image de l'indice de risque du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/rose-pentes" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image de la rose des pentes du massif.",
+        "description" : "Renvoie l'image de la rose des pentes du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/montagne-enneigement" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image de l'enneigement du massif.",
+        "description" : "Renvoie l'image de l'enneigement du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/graphe-neige-fraiche" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image du graphe de neige fraiche du massif.",
+        "description" : "Renvoie l'image du graphe de neige fraiche du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/apercu-meteo" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image de l'aperçu météo du massif.",
+        "description" : "Renvoie l'image de l'aperçu météo du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    },
+    "/massif/image/sept-derniers-jours" : {
+      "get" : {
+        "tags" : [ "ProduitsBulletinRisqueAvalanche" ],
+        "summary" : "Télécharger l'image des conditions météo des 7 derniers jours du massif.",
+        "description" : "Renvoie l'image des conditions météo des 7 derniers jours du massif, en cours de validité, pour le massif demandé.",
+        "parameters" : [ {
+          "name" : "id-massif",
+          "in" : "query",
+          "description" : "L'identifiant du massif.",
+          "required" : true,
+          "style" : "form",
+          "explode" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "ok"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/404"
+          }
+        },
+        "security" : [ {
+          "default" : [ ]
+        } ],
+        "x-auth-type" : "Application & Application User",
+        "x-throttling-tier" : "Unlimited"
+      }
+    }
+  },
+  "components" : {
+    "responses" : {
+      "404" : {
+        "description" : "La donnée demandée n'existe pas.",
+        "content" : {
+          "application/json" : {
+            "schema" : {
+              "type" : "object",
+              "properties" : {
+                "detail" : {
+                  "type" : "string",
+                  "example" : "no matching blob"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "default" : {
+        "type" : "oauth2",
+        "flows" : {
+          "implicit" : {
+            "authorizationUrl" : "/authorize",
+            "scopes" : { }
+          }
+        }
+      }
+    }
+  }
+}
