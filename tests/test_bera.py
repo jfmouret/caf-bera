@@ -42,4 +42,17 @@ class BeraTests(unittest.TestCase):
     def test_aqx_is_raster_layer(self):
         r=ET.fromstring(bera.aqx('https://host.test/bera','BERA'))
         self.assertEqual(r.find('source').get('layer'),'true');self.assertEqual(r.find('.//update-delay').text,'0D');self.assertIn('/tiles/{$z}',r.find('.//server').text)
+    def test_contours_open_pdf_route_without_overview(self):
+        info=bera.contour_description('https://host.test/bera',8)
+        self.assertIn('https://host.test/bera/bulletins/8.html',info)
+        self.assertNotIn('index.html',info)
+    def test_pdf_route_only_redirects_when_bulletin_valid(self):
+        b=self.b.copy();b['display_level']=b['maximum']
+        page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
+        self.assertIn('window.location.replace',page)
+        self.assertIn('Date.now()<until',page)
+        b['display_level']=None
+        page=bera.pdf_page(b,'https://host.test/raw/8.pdf')
+        self.assertNotIn('window.location.replace',page)
+        self.assertIn('indisponible',page)
 if __name__=='__main__':unittest.main()

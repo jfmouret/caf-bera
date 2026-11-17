@@ -7,7 +7,7 @@ import unicodedata
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 ROOT=Path(__file__).resolve().parent
 PARIS=ZoneInfo('Europe/Paris')
 ARCHIVE='https://files.data.gouv.fr/meteofrance/data/BULLETIN/BRA/'
@@ -168,6 +168,65 @@ def description(b):
     chunks.append('<p>'+esc('; '.join(b.get('notes',[])))+'</p>')
     return ''.join(chunks)
 
+def contour_description(base,code):
+    url=html.escape(base.rstrip('/')+f'/bulletins/{code}.html')
+    # HTML simple pour les lecteurs KML Android ; aucune redirection dans le KML.
+    return ('<div style="max-width:280px;font-size:20px;line-height:1.35">'
+            f'<p><a href="{url}"><font size="5"><b>OUVRIR LE BERA PDF</b></font></a></p>'
+            '<p><font size="3">Bulletin Météo-France actualisé.<br/>Connexion Internet nécessaire.</font></p></div>')
+
+def pdf_page(b,pdf_url=None):
+    """Adresse stable : ouverture du PDF à jour, ou indisponibilité explicite."""
+    esc=lambda x:html.escape(str(x))
+    page=('<!doctype html><html lang="fr"><head><meta charset="utf-8">'
+          '<meta name="viewport" content="width=device-width, initial-scale=1">'
+          '<meta http-equiv="Cache-Control" content="no-cache">'
+          f'<title>BERA {esc(b["name"])}</title>'
+          '<style>body{font:20px/1.5 system-ui,sans-serif;max-width:30rem;margin:24px auto;padding:0 16px;color:#16252c}'
+          'a{display:inline-block;background:#163e57;color:white;padding:14px 18px;border-radius:8px}h1{font-size:1.4em}</style></head><body>'
+          f'<h1>BERA {esc(b["name"])}</h1>')
+    if pdf_url and b.get('display_level') is not None:
+        page+=(f'<p id="status">Ouverture du PDF officiel…</p><p>Fin de validité : {esc(b["valid_until"])}</p>'
+               f'<p><a href="{esc(pdf_url)}">Ouvrir le PDF Météo-France</a></p>')
+        # Vérification côté téléphone : ne pas ouvrir silencieusement un ancien bulletin
+        # si la publication serveur n'a pas pu être renouvelée avant son échéance.
+        js=lambda x:json.dumps(x,ensure_ascii=True).replace('<',chr(92)+'u003c')
+        page+=('<script>const from=Date.parse('+js(b['issued'])+');const until=Date.parse('+js(b['valid_until'])+');'
+               'if(Date.now()>=from&&Date.now()<until){window.location.replace('+js(pdf_url)+');}'
+               'else{document.getElementById("status").textContent="Bulletin périmé ou pas encore valide. Vérifier les dates avant d’ouvrir le PDF archivé.";}</script>')
+    else:
+        page+='<p><b>BERA PDF actuel indisponible.</b></p><p>'+esc(b.get('state','INDISPONIBLE'))+'</p>'
+        if b.get('valid_until'):page+='<p>Échéance du bulletin obtenu : '+esc(b['valid_until'])+'</p>'
+        page+='<p><a href="https://meteofrance.com/meteo-montagne">Consulter Météo-France</a></p>'
+    return page+'<p>Source : Météo-France. Vérifier la date du PDF avant utilisation.</p></body></html>'
+
+def tile_font(size):
+    try:return ImageFont.truetype('DejaVuSans.ttf',size)
+    except OSError:return ImageFont.load_default(size=size)
+
+def label_lines(name,level,end):
+    first=f'{name} {level}'
+    # Respecter la largeur d'une tuile, y compris les longs noms de massifs.
+    font=tile_font(16);probe=ImageDraw.Draw(Image.new('RGBA',(1,1)))
+    lines=[];line=''
+    for word in first.replace('-','- ').split():
+        candidate=(line+' '+word).strip()
+        if line and probe.textbbox((0,0),candidate,font=font)[2]>232:lines.append(line);line=word
+        else:line=candidate
+    lines.append(line)
+    try:expiry=stamp(end).strftime('%d/%m %H:%M')
+    except (ValueError,TypeError):expiry='non disponible'
+    return lines+['Fin '+expiry]
+
+def draw_tile_label(im,name,level,end,y):
+    draw=ImageDraw.Draw(im);lines=label_lines(name,level,end);font=tile_font(16)
+    widths=[draw.textbbox((0,0),line,font=font)[2] for line in lines]
+    width=min(252,max(widths)+12);height=22*len(lines)+8
+    if y+height>254:return y
+    draw.rounded_rectangle((2,y,2+width,y+height),radius=4,fill=(255,255,255,230))
+    for i,line in enumerate(lines):draw.text((8,y+4+i*22),line,font=font,fill=(12,25,32,255))
+    return y+height+4
+
 def sub(p,tag,text=None,**attrs):
     e=ET.SubElement(p,'{'+K+'}'+tag,attrs)
     if text is not None:e.text=str(text)
@@ -178,9 +237,9 @@ def kml(features,bulletins,title,contours_base=None):
     for f in features:
         p=f['properties'];b=bulletins[p['code']];level=None if contours_base else b['display_level'];rgb=COLORS[level]
         color='55'+rgb[4:6]+rgb[2:4]+rgb[0:2]
-        info=description(b) if contours_base is None else '<p>Contour officiel du massif. Les informations actualisées sont accessibles en ligne :</p><p><a href="'+html.escape(contours_base.rstrip('/')+'/index.html#massif-'+str(p['code']))+'">Ouvrir la fiche BERA actualisée</a></p><p>Source : Météo-France, Licence Ouverte 2.0. La couleur de la couche AQX indique le maximum du massif ; vérifier sa date.</p>'
+        info=description(b) if contours_base is None else contour_description(contours_base,p['code'])
         pm=sub(doc,'Placemark');sub(pm,'name',p['title'] if contours_base else p['title']+' — '+(str(level)+'/5' if level else 'INDISPONIBLE')+' — '+title)
-        sub(pm,'description',info);style=sub(pm,'Style');line=sub(style,'LineStyle');sub(line,'color',color);sub(line,'width',3)
+        sub(pm,'description',info);style=sub(pm,'Style');label=sub(style,'LabelStyle');sub(label,'scale',1.3);line=sub(style,'LineStyle');sub(line,'color',color);sub(line,'width',3)
         poly=sub(style,'PolyStyle');sub(poly,'color',color);sub(poly,'fill',0 if contours_base else 1);sub(poly,'outline',1)
         g=f['geometry'];polys=[g['coordinates']] if g['type']=='Polygon' else g['coordinates'];multi=sub(pm,'MultiGeometry')
         for rings in polys:
@@ -192,7 +251,7 @@ def kml(features,bulletins,title,contours_base=None):
                 boundary=sub(pg,'outerBoundaryIs' if i==0 else 'innerBoundaryIs');lr=sub(boundary,'LinearRing')
                 sub(lr,'coordinates',' '.join(f'{x},{y},0' for x,y,*_ in ring))
         # Repère central distinct, utile si la sélection d'une zone est peu commode.
-        wp=sub(doc,'Placemark');sub(wp,'name',p['title']+' — fiche BERA');sub(wp,'description',info);pt=sub(wp,'Point');sub(pt,'coordinates',f'{p["lon_center"]},{p["lat_center"]},0')
+        wp=sub(doc,'Placemark');sub(wp,'name',p['title']+' · BERA PDF' if contours_base else p['title']+' — fiche BERA');sub(wp,'description',info);pt=sub(wp,'Point');sub(pt,'coordinates',f'{p["lon_center"]},{p["lat_center"]},0')
     return ET.tostring(root,encoding='utf-8',xml_declaration=True)
 
 def project(lon,lat,z):
@@ -221,13 +280,10 @@ def tiles(features,bs,out,zmin,zmax):
                         hatch=Image.new('RGBA',(256,256));hd=ImageDraw.Draw(hatch)
                         for v in range(-256,512,12):hd.line((v,0,v-256,256),fill=(0,0,0,210),width=3)
                         hatch.putalpha(Image.composite(hatch.getchannel('A'),Image.new('L',(256,256)),mask));im=Image.alpha_composite(im,hatch)
-                    end=b.get('valid_until','?')[:16];labels.append((('ARCHIVE ' if 'ARCHIVE' in b['state'] else '')+f['properties']['title'],str(level)+'/5' if level else 'INDISPONIBLE',end))
+                    end=b.get('valid_until','?');labels.append((('ARCHIVE ' if 'ARCHIVE' in b['state'] else '')+f['properties']['title'],str(level)+'/5' if level else 'INDISPONIBLE',end))
                 # Conserver aussi les tuiles transparentes du rectangle de couverture.
-                d=ImageDraw.Draw(im)
-                for i,(name,lev,end) in enumerate(labels[:3]):
-                    text=f'{name} {lev}\nFin {end}'
-                    # Pillow embarque DejaVu dans les environnements courants ; sinon défaut ASCII.
-                    text=text.encode('ascii','replace').decode();d.rectangle((2,2+i*28,252,29+i*28),fill=(255,255,255,210));d.text((4,3+i*28),text,fill=(0,0,0,255))
+                y_label=2
+                for name,lev,end in labels[:3]:y_label=draw_tile_label(im,name,lev,end,y_label)
                 path=out/'tiles'/str(z)/str(x)/f'{y}.png';path.parent.mkdir(parents=True,exist_ok=True);im.save(path);count+=1
     # Toutes les tuiles absentes sont desservies par une image transparente en serveur local.
     Image.new('RGBA',(256,256)).save(out/'empty.png')
@@ -243,7 +299,7 @@ def mbtiles(out):
 def aqx(base,title):
     url=html.escape(base.rstrip('/')+'/tiles/{$z}/{$x}/{$y}.png')
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<aqx version="11"><name>CAF BERA</name><description>Source Météo-France — Licence Ouverte 2.0. Vérifier la date imprimée.</description><source id="CAFBERA2026" layer="true" opacity="100"><name>{html.escape(title)}</name><default-location>6.00201,45.27395</default-location><zoom-levels z="6-12"><update-delay>0D</update-delay><max-threads>2</max-threads><server>{url}</server></zoom-levels></source></aqx>'''
+<aqx version="11"><name>CAF BERA</name><description>Source Météo-France — Licence Ouverte 2.0. Vérifier la date imprimée.</description><source id="CAFBERA2026V2" layer="true" opacity="100"><name>{html.escape(title)}</name><default-location>6.00201,45.27395</default-location><zoom-levels z="6-12"><update-delay>0D</update-delay><max-threads>2</max-threads><server>{url}</server></zoom-levels></source></aqx>'''
 
 def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
     out.mkdir(parents=True,exist_ok=True)
@@ -258,12 +314,16 @@ def build(features,bs,out,now,base,errors=(),title='BERA',offline=False):
     data=kml(features,bs,'Contours BERA — fiches en ligne',base)
     (out/'bera-contours.kml').write_bytes(data)
     with zipfile.ZipFile(out/'bera-contours.kmz','w',zipfile.ZIP_DEFLATED) as z:z.writestr('doc.kml',data)
+    (out/'bulletins').mkdir(exist_ok=True)
+    for code,b in bs.items():
+        pdf_url=(b.get('public_pdf') if (out/'raw'/f'{code}.pdf').exists() else b.get('pdf'))
+        (out/'bulletins'/f'{code}.html').write_text(pdf_page(b,pdf_url))
     n=tiles(features,bs,out,6,12)
     (out/'bera.aqx').write_text(aqx(base,title))
     if offline:mbtiles(out)
     if offline:shutil.copyfile(out/'bera.mbtiles',out/'bera.mbtile')
     pages=''.join('<section id="massif-'+str(b['code'])+'">'+description(b)+'</section>' for b in bs.values())
-    (out/'index.html').write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>CAF BERA</title><h1>'+html.escape(title)+'</h1><p>Généré '+now.isoformat()+'</p><p><a href="bera-alpes.kmz">KMZ Alpes</a> · <a href="bera-belledonne.kmz">KMZ Belledonne</a> · <a href="bera.aqx">AQX</a> · <a href="bera-contours.kmz">Contours et fiches en ligne</a></p><p>1 vert faible · 2 jaune limité · 3 orange marqué · 4 rouge fort · 5 rouge hachuré noir très fort · gris indisponible. La couleur est le maximum du massif, sans découpage altimétrique des pentes. AQX : actualisation à chaque affichage en ligne ; KML : réimporter la copie actualisée.</p>'+pages+'</html>')
+    (out/'index.html').write_text('<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CAF BERA</title><style>body{font:19px/1.5 system-ui,sans-serif;max-width:42rem;margin:20px auto;padding:0 16px;overflow-wrap:anywhere}h1{font-size:1.5em}h2{font-size:1.3em}section{border-top:1px solid #ccc;margin-top:24px;padding-top:12px}a{line-height:1.7}</style><h1>'+html.escape(title)+'</h1><p>Généré '+now.isoformat()+'</p><p><a href="bera-alpes.kmz">KMZ Alpes</a> · <a href="bera-belledonne.kmz">KMZ Belledonne</a> · <a href="bera.aqx">AQX</a> · <a href="bera-contours.kmz">Contours et fiches en ligne</a></p><p>1 vert faible · 2 jaune limité · 3 orange marqué · 4 rouge fort · 5 rouge hachuré noir très fort · gris indisponible. La couleur est le maximum du massif, sans découpage altimétrique des pentes. AQX : actualisation à chaque affichage en ligne ; KML : réimporter la copie actualisée.</p>'+pages+'</html>')
     return n
 
 def main():
