@@ -1,4 +1,5 @@
 name: BERA quotidien
+run-name: "BERA et Nivôse — ${{ github.event_name }}"
 on:
   push:
     branches: [main]
@@ -33,6 +34,14 @@ jobs:
     env:
       NIVOSE_ONLY: ${{ (github.event_name == 'schedule' && github.event.schedule == '30 6,10,14 * * *') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[nivose]')) }}
     steps:
+      - name: Journaliser le déclenchement et les horloges
+        env:
+          TRIGGER: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          echo "Événement : $TRIGGER ; programmation : $SCHEDULE ; Nivôse seul : $NIVOSE_ONLY"
+          date -u '+UTC : %Y-%m-%d %H:%M:%S'
+          TZ=Europe/Paris date '+Paris : %Y-%m-%d %H:%M:%S %Z'
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
